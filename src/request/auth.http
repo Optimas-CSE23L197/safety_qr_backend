@@ -1,0 +1,39 @@
+### ! Login Admin
+POST http://localhost:3000/api/v1/auth/super-admin
+Content-Type: application/json
+
+{
+    "email": "Karananimesh144@gmail.com",
+    "password": "Karan@144#"
+}
+
+###! Admin Logout
+POST http://localhost:3000/api/v1/auth/logout
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0N2VlYjNkNC1lOTNlLTQ0OGMtYTE0NS1mM2YxYzI2NDhlMzAiLCJyb2xlIjoiQURNSU4iLCJzY2hvb2xJZCI6IjQxMGU2MWI4LTNkZGItNDlmOC04MGNmLTcxZDFmMTllZTZlMyIsImFjdG9yVHlwZSI6InNjaG9vbCIsImlhdCI6MTc3MjAyNzYyNywiZXhwIjoxNzcyMTE0MDI3fQ.NGxEwTzN0eqXMXsttUQjPMwYnKlgJgxTxOsCEDgiaa4
+
+### ! School Login
+POST http://localhost:3000/api/v1/auth/school
+Content-Type: application/json
+
+{
+    "email": "schooladmin@test.com",
+    "password": "Admin@123#"
+}
+
+###! Parent otp generator
+POST http://localhost:3000/api/v1/auth/parent/send-otp
+Content-Type: application/json
+
+{
+    "phone": "6294690079"
+}
+
+###! Parent otp verify
+POST http://localhost:3000/api/v1/auth/parent/verify-otp
+Content-Type: application/json
+
+{
+    "phone": "6294690079",
+    "otp": "733146"
+}

@@ -1,0 +1,633 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model School {
+  id            String          @id @default(uuid())
+  name          String
+  address       String?
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  city          String?
+  code          String          @unique
+  country       String          @default("IN")
+  email         String?
+  logo_url      String?
+  phone         String?
+  timezone      String          @default("Asia")
+  apiKeys       ApiKey[]
+  auditLogs     AuditLog[]
+  cards         Card[]
+  notifications Notification[]
+  payments      Payment[]
+  settings      SchoolSettings?
+  users         SchoolUser[]
+  students      Student[]
+  subscriptions Subscription[]
+  tokens        Token[]
+  tokenBatches  TokenBatch[]
+  webhooks      Webhook[]
+
+  @@index([code])
+  @@index([is_active])
+}
+
+model SchoolSettings {
+  id                         String            @id @default(uuid())
+  school_id                  String            @unique
+  allow_location             Boolean           @default(false)
+  allow_parent_edit          Boolean           @default(true)
+  scan_notifications_enabled Boolean           @default(true)
+  notify_on_every_scan       Boolean           @default(false)
+  scan_alert_cooldown_mins   Int               @default(60)
+  token_validity_months      Int               @default(12)
+  max_tokens_per_student     Int               @default(1)
+  default_profile_visibility ProfileVisibility @default(PUBLIC)
+  created_at                 DateTime          @default(now())
+  updated_at                 DateTime          @updatedAt
+  school                     School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
+}
+
+model SchoolUser {
+  id            String     @id @default(uuid())
+  school_id     String
+  email         String     @unique
+  password_hash String
+  name          String?
+  role          SchoolRole
+  is_active     Boolean    @default(true)
+  last_login_at DateTime?
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+  school        School     @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  sessions      Session[]
+
+  @@index([school_id])
+}
+
+model ParentUser {
+  id                String                 @id @default(uuid())
+  email             String?                @unique
+  phone             String
+  phone_index       String?                @unique
+  password_hash     String?
+  is_phone_verified Boolean                @default(false)
+  is_email_verified Boolean                @default(false)
+  status            UserStatus             @default(ACTIVE)
+  created_at        DateTime               @default(now())
+  updated_at        DateTime               @updatedAt
+  last_login_at     DateTime?
+  deleted_at        DateTime?
+  devices           ParentDevice[]
+  children          ParentStudent[]
+  sessions          Session[]
+  updateRequests    StudentUpdateRequest[]
+
+  @@index([phone_index])
+  @@index([deleted_at])
+}
+
+model ParentDevice {
+  id           String     @id @default(uuid())
+  parent_id    String
+  device_token String     @unique
+  platform     String
+  is_active    Boolean    @default(true)
+  created_at   DateTime   @default(now())
+  parent       ParentUser @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@index([parent_id])
+}
+
+model Student {
+  id              String                 @id @default(uuid())
+  school_id       String
+  class           String?
+  photo_url       String?
+  is_active       Boolean                @default(true)
+  created_at      DateTime               @default(now())
+  updated_at      DateTime               @updatedAt
+  deleted_at      DateTime?
+  dob_encrypted   String?
+  first_name      String
+  last_name       String?
+  section         String?
+  cards           Card[]
+  emergency       EmergencyProfile?
+  locationConsent LocationConsent?
+  locationEvents  LocationEvent[]
+  notifications   Notification[]
+  parents         ParentStudent[]
+  school          School                 @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  updateRequests  StudentUpdateRequest[]
+  tokens          Token[]
+
+  @@index([school_id])
+  @@index([school_id, is_active])
+  @@index([deleted_at])
+}
+
+model ParentStudent {
+  id           String     @id @default(uuid())
+  parent_id    String
+  student_id   String
+  relationship String?
+  is_primary   Boolean    @default(false)
+  created_at   DateTime   @default(now())
+  parent       ParentUser @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  student      Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([parent_id, student_id])
+  @@index([student_id])
+  @@index([parent_id])
+}
+
+model EmergencyProfile {
+  id           String             @id @default(uuid())
+  student_id   String             @unique
+  blood_group  String?
+  allergies    String?
+  conditions   String?
+  medications  String?
+  doctor_name  String?
+  doctor_phone String?
+  notes        String?
+  visibility   ProfileVisibility  @default(PUBLIC)
+  is_visible   Boolean            @default(true)
+  created_at   DateTime           @default(now())
+  updated_at   DateTime           @updatedAt
+  contacts     EmergencyContact[]
+  student      Student            @relation(fields: [student_id], references: [id], onDelete: Cascade)
+}
+
+model EmergencyContact {
+  id           String           @id @default(uuid())
+  profile_id   String
+  name         String
+  phone        String
+  relationship String?
+  is_active    Boolean          @default(true)
+  priority     Int
+  profile      EmergencyProfile @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+
+  @@index([profile_id])
+  @@index([profile_id, priority])
+}
+
+model StudentUpdateRequest {
+  id            String        @id @default(uuid())
+  student_id    String
+  parent_id     String
+  changes       Json
+  status        RequestStatus @default(PENDING)
+  reject_reason String?
+  reviewed_by   String?
+  reviewed_at   DateTime?
+  created_at    DateTime      @default(now())
+  parent        ParentUser    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+  student       Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([parent_id])
+  @@index([status])
+}
+
+model Token {
+  id             String          @id @default(uuid())
+  school_id      String
+  student_id     String?
+  token_hash     String          @unique
+  status         TokenStatus     @default(UNASSIGNED)
+  expires_at     DateTime?
+  replaced_by_id String?
+  activated_at   DateTime?
+  assigned_at    DateTime?
+  batch_id       String?
+  created_at     DateTime        @default(now())
+  revoked_at     DateTime?
+  cards          Card[]
+  locations      LocationEvent[]
+  anomalies      ScanAnomaly[]
+  scans          ScanLog[]
+  batch          TokenBatch?     @relation(fields: [batch_id], references: [id])
+  replacedBy     Token?          @relation("TokenReplacement", fields: [replaced_by_id], references: [id])
+  replacements   Token[]         @relation("TokenReplacement")
+  school         School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student        Student?        @relation(fields: [student_id], references: [id])
+
+  @@index([school_id])
+  @@index([school_id, status])
+  @@index([student_id])
+  @@index([batch_id])
+  @@index([status])
+  @@index([expires_at])
+}
+
+model TokenBatch {
+  id         String   @id @default(uuid())
+  school_id  String
+  count      Int
+  created_by String?
+  notes      String?
+  created_at DateTime @default(now())
+  tokens     Token[]
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id])
+}
+
+model ScanLog {
+  id               String     @id @default(uuid())
+  token_id         String
+  ip_address       String?
+  device           String?
+  created_at       DateTime   @default(now())
+  ip_city          String?
+  ip_country       String?
+  latitude         Float?
+  longitude        Float?
+  response_time_ms Int?
+  result           ScanResult
+  user_agent       String?
+  token            Token      @relation(fields: [token_id], references: [id], onDelete: Cascade)
+
+  @@index([token_id])
+  @@index([token_id, created_at])
+  @@index([created_at])
+  @@index([result])
+  @@index([result, created_at])
+}
+
+model ScanAnomaly {
+  id          String    @id @default(uuid())
+  token_id    String
+  reason      String
+  metadata    Json?
+  resolved    Boolean   @default(false)
+  resolved_at DateTime?
+  resolved_by String?
+  created_at  DateTime  @default(now())
+  token       Token     @relation(fields: [token_id], references: [id], onDelete: Cascade)
+
+  @@index([token_id])
+  @@index([resolved])
+  @@index([created_at])
+}
+
+model ScanRateLimit {
+  ip_address   String   @id
+  count        Int      @default(1)
+  last_hit     DateTime @default(now())
+  window_start DateTime @default(now())
+
+  @@index([window_start])
+}
+
+model LocationConsent {
+  id           String   @id @default(uuid())
+  student_id   String   @unique
+  enabled      Boolean
+  consented_by String?
+  updated_at   DateTime @updatedAt
+  student      Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+}
+
+model LocationEvent {
+  id         String         @id @default(uuid())
+  student_id String
+  token_id   String?
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  source     LocationSource @default(SCAN_TRIGGER)
+  created_at DateTime       @default(now())
+  student    Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  token      Token?         @relation(fields: [token_id], references: [id])
+
+  @@index([student_id])
+  @@index([student_id, created_at])
+}
+
+model Card {
+  id           String    @id @default(uuid())
+  school_id    String
+  student_id   String
+  file_url     String
+  created_at   DateTime  @default(now())
+  card_number  String    @unique
+  print_status String    @default("PENDING")
+  printed_at   DateTime?
+  token_id     String?
+  school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  token        Token?    @relation(fields: [token_id], references: [id])
+
+  @@index([school_id])
+  @@index([student_id])
+}
+
+model Session {
+  id                 String      @id @default(uuid())
+  parent_user_id     String?
+  school_user_id     String?
+  admin_user_id      String?     // ← already exists
+  refresh_token_hash String      @unique
+  device_info        String?
+  ip_address         String?
+  expires_at         DateTime
+  created_at         DateTime    @default(now())
+  parentUser         ParentUser?  @relation(fields: [parent_user_id], references: [id], onDelete: Cascade)
+  schoolUser         SchoolUser?  @relation(fields: [school_user_id], references: [id], onDelete: Cascade)
+  superAdmin         SuperAdmin?  @relation(fields: [admin_user_id], references: [id], onDelete: Cascade) // ← add this line
+
+  @@index([parent_user_id])
+  @@index([school_user_id])
+  @@index([admin_user_id])  // ← add this index too
+  @@index([expires_at])
+}
+
+model BlacklistToken {
+  expires_at DateTime
+  created_at DateTime @default(now())
+  token_hash String   @id
+
+  @@index([expires_at])
+}
+
+model ApiKey {
+  id           String    @id @default(uuid())
+  school_id    String
+  name         String
+  key_hash     String    @unique
+  key_prefix   String
+  scopes       String[]
+  last_used_at DateTime?
+  expires_at   DateTime?
+  revoked_at   DateTime?
+  created_at   DateTime  @default(now())
+  school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id])
+}
+
+model Webhook {
+  id          String            @id @default(uuid())
+  school_id   String
+  url         String
+  secret_hash String
+  events      String[]
+  is_active   Boolean           @default(true)
+  created_at  DateTime          @default(now())
+  school      School            @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  deliveries  WebhookDelivery[]
+
+  @@index([school_id])
+}
+
+model WebhookDelivery {
+  id              String    @id @default(uuid())
+  webhook_id      String
+  idempotency_key String?   @unique
+  event_type      String
+  payload         Json
+  status_code     Int?
+  response        String?
+  attempt         Int       @default(1)
+  delivered_at    DateTime?
+  created_at      DateTime  @default(now())
+  webhook         Webhook   @relation(fields: [webhook_id], references: [id], onDelete: Cascade)
+
+  @@index([webhook_id])
+  @@index([webhook_id, created_at])
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  school_id            String
+  status               SubscriptionStatus @default(TRIALING)
+  created_at           DateTime           @default(now())
+  cancel_reason        String?
+  cancelled_at         DateTime?
+  current_period_end   DateTime
+  current_period_start DateTime
+  plan                 String
+  provider             String
+  provider_sub_id      String?            @unique
+  trial_ends_at        DateTime?
+  updated_at           DateTime           @updatedAt
+  payments             Payment[]
+  school               School             @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id])
+  @@index([status])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  school_id       String
+  subscription_id String
+  amount          Int
+  currency        String        @default("INR")
+  status          PaymentStatus
+  provider        String
+  provider_ref    String?       @unique
+  created_at      DateTime      @default(now())
+  failure_reason  String?
+  metadata        Json?
+  school          School        @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  subscription    Subscription  @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id])
+  @@index([subscription_id])
+  @@index([status])
+}
+
+model WebhookEvent {
+  id           String    @id @default(uuid())
+  provider     String
+  event_type   String
+  payload      Json
+  received_at  DateTime  @default(now())
+  error        String?
+  processed    Boolean   @default(false)
+  processed_at DateTime?
+
+  @@index([provider, event_type])
+  @@index([processed])
+}
+
+model Notification {
+  id         String              @id @default(uuid())
+  school_id  String
+  student_id String?
+  parent_id  String?
+  type       NotificationType
+  channel    NotificationChannel
+  status     NotificationStatus  @default(QUEUED)
+  payload    Json?
+  sent_at    DateTime?
+  error      String?
+  created_at DateTime            @default(now())
+  school     School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student    Student?            @relation(fields: [student_id], references: [id])
+
+  @@index([school_id])
+  @@index([student_id])
+  @@index([parent_id])
+  @@index([status])
+  @@index([created_at])
+}
+
+model AuditLog {
+  id         String    @id @default(uuid())
+  action     String
+  entity     String
+  entity_id  String
+  metadata   Json?
+  created_at DateTime  @default(now())
+  actor_id   String
+  actor_type ActorType
+  ip_address String?
+  new_value  Json?
+  old_value  Json?
+  school_id  String?
+  school     School?   @relation(fields: [school_id], references: [id])
+
+  @@index([actor_id])
+  @@index([school_id])
+  @@index([entity, entity_id])
+  @@index([created_at])
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  enabled     Boolean  @default(false)
+  metadata    Json?
+  description String?
+  updated_at  DateTime @updatedAt
+}
+
+model SchoolFeatureFlag {
+  id        String  @id @default(uuid())
+  school_id String
+  key       String
+  enabled   Boolean
+
+  @@unique([school_id, key])
+  @@index([school_id])
+}
+
+model SuperAdmin {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password_hash String
+  is_active     Boolean   @default(true)
+  last_login_at DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  sessions      Session[]
+
+  @@index([email])
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TokenStatus {
+  UNASSIGNED
+  ISSUED
+  ACTIVE
+  INACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum SchoolRole {
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+enum ScanResult {
+  SUCCESS
+  INVALID
+  REVOKED
+  EXPIRED
+  INACTIVE
+  RATE_LIMITED
+  ERROR
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  SCAN_ALERT
+  SCAN_ANOMALY
+  CARD_EXPIRING
+  CARD_REVOKED
+  CARD_REPLACED
+  BILLING_ALERT
+  SYSTEM
+}
+
+enum NotificationChannel {
+  SMS
+  EMAIL
+  PUSH
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  SUPPRESSED
+}
+
+enum ActorType {
+  SUPER_ADMIN
+  SCHOOL_USER
+  PARENT_USER
+  SYSTEM
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  MINIMAL
+  HIDDEN
+}
+
+enum LocationSource {
+  SCAN_TRIGGER
+  PARENT_APP
+  MANUAL
+}
