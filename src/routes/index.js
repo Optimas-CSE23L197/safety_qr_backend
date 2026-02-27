@@ -5,6 +5,7 @@ const route = Router();
 import authRoute from "../modules/auth/auth.routes.js";
 import qrRoute from "../modules/qr_id/qr.routes.js";
 import schoolRoutes from "../modules/school/school.routes.js";
+import studenRoutes from "../modules/student/student.routes.js";
 
 // Health check (load balancer friendly)
 route.get("/health", (req, res) => {
@@ -19,5 +20,6 @@ route.get("/health", (req, res) => {
 route.use("/auth", authRoute);
 route.use("/qr", qrRoute);
 route.use("/schools", schoolRoutes);
+route.use("/schools/:schoolId/students",studenRoutes);
 
 export default route;
