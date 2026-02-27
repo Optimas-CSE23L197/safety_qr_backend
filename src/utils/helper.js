@@ -53,3 +53,19 @@ export const getContext = (req) => ({
   ip: req.ip,
   deviceInfo: req.headers["user-agent"] ?? null,
 });
+
+// sanitizeToken
+export const sanitizeToken = (token) => ({
+  id: token.id,
+  school_id: token.school_id,
+  status: token.status,
+  expires_at: token.expires_at,
+  created_at: token.created_at,
+  // only include these if they have a value
+  ...(token.student_id && { student_id: token.student_id }),
+  ...(token.batch_id && { batch_id: token.batch_id }),
+  ...(token.activated_at && { activated_at: token.activated_at }),
+  ...(token.assigned_at && { assigned_at: token.assigned_at }),
+  ...(token.revoked_at && { revoked_at: token.revoked_at }),
+  ...(token.replaced_by_id && { replaced_by_id: token.replaced_by_id }),
+});

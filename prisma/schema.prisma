@@ -8,31 +8,33 @@ datasource db {
 }
 
 model School {
-  id            String          @id @default(uuid())
-  name          String
-  address       String?
-  is_active     Boolean         @default(true)
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
-  city          String?
-  code          String          @unique
-  country       String          @default("IN")
-  email         String?
-  logo_url      String?
-  phone         String?
-  timezone      String          @default("Asia")
-  apiKeys       ApiKey[]
-  auditLogs     AuditLog[]
-  cards         Card[]
-  notifications Notification[]
-  payments      Payment[]
-  settings      SchoolSettings?
-  users         SchoolUser[]
-  students      Student[]
-  subscriptions Subscription[]
-  tokens        Token[]
-  tokenBatches  TokenBatch[]
-  webhooks      Webhook[]
+  id               String          @id @default(uuid())
+  name             String
+  address          String?
+  is_active        Boolean         @default(true)
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  city             String?
+  code             String          @unique
+  country          String          @default("IN")
+  email            String?
+  logo_url         String?
+  phone            String?
+  timezone         String          @default("Asia/Kolkata") // FIX: was "Asia" — invalid IANA timezone
+  apiKeys          ApiKey[]
+  auditLogs        AuditLog[]
+  cards            Card[]
+  notifications    Notification[]
+  payments         Payment[]
+  settings         SchoolSettings?
+  users            SchoolUser[]
+  students         Student[]
+  subscriptions    Subscription[]
+  tokens           Token[]
+  tokenBatches     TokenBatch[]
+  webhooks         Webhook[]
+  cardTemplate     CardTemplate?
+  trustedScanZones TrustedScanZone[] // ADD: relation for new model
 
   @@index([code])
   @@index([is_active])
@@ -199,27 +201,28 @@ model StudentUpdateRequest {
 }
 
 model Token {
-  id             String          @id @default(uuid())
+  id             String              @id @default(uuid())
   school_id      String
   student_id     String?
-  token_hash     String          @unique
-  status         TokenStatus     @default(UNASSIGNED)
+  token_hash     String              @unique
+  status         TokenStatus         @default(UNASSIGNED)
   expires_at     DateTime?
   replaced_by_id String?
   activated_at   DateTime?
   assigned_at    DateTime?
   batch_id       String?
-  created_at     DateTime        @default(now())
+  created_at     DateTime            @default(now())
   revoked_at     DateTime?
   cards          Card[]
   locations      LocationEvent[]
   anomalies      ScanAnomaly[]
   scans          ScanLog[]
-  batch          TokenBatch?     @relation(fields: [batch_id], references: [id])
-  replacedBy     Token?          @relation("TokenReplacement", fields: [replaced_by_id], references: [id])
-  replacements   Token[]         @relation("TokenReplacement")
-  school         School          @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student        Student?        @relation(fields: [student_id], references: [id])
+  nonces         RegistrationNonce[] // ADD: relation for new model
+  batch          TokenBatch?         @relation(fields: [batch_id], references: [id])
+  replacedBy     Token?              @relation("TokenReplacement", fields: [replaced_by_id], references: [id])
+  replacements   Token[]             @relation("TokenReplacement")
+  school         School              @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  student        Student?            @relation(fields: [student_id], references: [id])
 
   @@index([school_id])
   @@index([school_id, status])
@@ -242,6 +245,10 @@ model TokenBatch {
   @@index([school_id])
 }
 
+// ADD 3 fields: ip_region, device_hash, scan_purpose
+// ip_region  → anomaly detection (FOREIGN_LOCATION rule)
+// device_hash → anomaly detection (MULTI_TOKEN_SINGLE_DEVICE rule)
+// scan_purpose → distinguish EMERGENCY vs casual scans
 model ScanLog {
   id               String     @id @default(uuid())
   token_id         String
@@ -250,6 +257,9 @@ model ScanLog {
   created_at       DateTime   @default(now())
   ip_city          String?
   ip_country       String?
+  ip_region        String?    // ADD: state/region from IP geo (e.g. "Maharashtra")
+  device_hash      String?    // ADD: 16-char fingerprint for device tracking
+  scan_purpose     String?    // ADD: "EMERGENCY" | "REGISTRATION" | "UNKNOWN"
   latitude         Float?
   longitude        Float?
   response_time_ms Int?
@@ -262,6 +272,7 @@ model ScanLog {
   @@index([created_at])
   @@index([result])
   @@index([result, created_at])
+  @@index([device_hash])       // ADD: needed for MULTI_TOKEN_SINGLE_DEVICE anomaly query
 }
 
 model ScanAnomaly {
@@ -280,13 +291,20 @@ model ScanAnomaly {
   @@index([created_at])
 }
 
+// ADD 2 fields: device_hash, blocked_until
+// device_hash   → rate limit by device (not just IP — catches VPN hoppers)
+// blocked_until → timed block after threshold. Without this field you can
+//                 track counts but can never actually block anyone.
 model ScanRateLimit {
-  ip_address   String   @id
-  count        Int      @default(1)
-  last_hit     DateTime @default(now())
-  window_start DateTime @default(now())
+  ip_address    String    @id
+  count         Int       @default(1)
+  last_hit      DateTime  @default(now())
+  window_start  DateTime  @default(now())
+  device_hash   String?   // ADD: device fingerprint for device-based limiting
+  blocked_until DateTime? // ADD: block expiry — checked as `blocked_until > now()`
 
   @@index([window_start])
+  @@index([device_hash]) // ADD: needed for device-based lookup
 }
 
 model LocationConsent {
@@ -317,7 +335,7 @@ model LocationEvent {
 model Card {
   id           String    @id @default(uuid())
   school_id    String
-  student_id   String
+  student_id   String?   // nullable — blank cards have no student until registered
   file_url     String
   created_at   DateTime  @default(now())
   card_number  String    @unique
@@ -325,30 +343,31 @@ model Card {
   printed_at   DateTime?
   token_id     String?
   school       School    @relation(fields: [school_id], references: [id], onDelete: Cascade)
-  student      Student   @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  student      Student?  @relation(fields: [student_id], references: [id], onDelete: Cascade)
   token        Token?    @relation(fields: [token_id], references: [id])
 
   @@index([school_id])
   @@index([student_id])
+  @@index([token_id]) // ADD: needed for findCardByTokenId() in card.repository.js
 }
 
 model Session {
   id                 String      @id @default(uuid())
   parent_user_id     String?
   school_user_id     String?
-  admin_user_id      String?     // ← already exists
+  admin_user_id      String?
   refresh_token_hash String      @unique
   device_info        String?
   ip_address         String?
   expires_at         DateTime
   created_at         DateTime    @default(now())
-  parentUser         ParentUser?  @relation(fields: [parent_user_id], references: [id], onDelete: Cascade)
-  schoolUser         SchoolUser?  @relation(fields: [school_user_id], references: [id], onDelete: Cascade)
-  superAdmin         SuperAdmin?  @relation(fields: [admin_user_id], references: [id], onDelete: Cascade) // ← add this line
+  parentUser         ParentUser? @relation(fields: [parent_user_id], references: [id], onDelete: Cascade)
+  schoolUser         SchoolUser? @relation(fields: [school_user_id], references: [id], onDelete: Cascade)
+  superAdmin         SuperAdmin? @relation(fields: [admin_user_id], references: [id], onDelete: Cascade)
 
   @@index([parent_user_id])
   @@index([school_user_id])
-  @@index([admin_user_id])  // ← add this index too
+  @@index([admin_user_id])
   @@index([expires_at])
 }
 
@@ -537,6 +556,71 @@ model SuperAdmin {
 
   @@index([email])
 }
+
+model CardTemplate {
+  id                 String   @id @default(uuid())
+  school_id          String   @unique
+  logo_url           String?
+  background_color   String   @default("#FFFFFF")
+  primary_color      String   @default("#000000")
+  text_color         String   @default("#000000")
+  // ADD 5 fields used by card templates — were missing, caused silent undefined fallbacks
+  qr_dark_color      String   @default("#000000") // ADD: QR module color
+  qr_light_color     String   @default("#FFFFFF") // ADD: QR background color
+  cover_accent_color String   @default("#E8342A") // ADD: top cover accent color
+  cover_tagline      String?                      // ADD: custom tagline on cover
+  cards_per_sheet    Int      @default(8)         // ADD: bulk print layout (A4 = 8 cards)
+  show_student_name  Boolean  @default(true)
+  show_class         Boolean  @default(true)
+  show_school_name   Boolean  @default(true)
+  show_photo         Boolean  @default(true)
+  card_width         Int      @default(640)
+  card_height        Int      @default(400)
+  is_locked          Boolean  @default(true)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  school             School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+}
+
+// ADD NEW MODEL: one-time nonce for blank card registration flow
+// Generated on first scan (UNASSIGNED → ISSUED)
+// Burned on OTP verify (ISSUED → ACTIVE)
+// Without this model the entire blank card registration flow has no DB backing
+model RegistrationNonce {
+  id         String   @id @default(uuid())
+  nonce      String   @unique // random hex, sent to client, single use
+  token_id   String
+  expires_at DateTime // 15 min TTL — short window prevents replay attacks
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+  token      Token    @relation(fields: [token_id], references: [id], onDelete: Cascade)
+
+  @@index([nonce])       // lookup by nonce on every scan
+  @@index([expires_at])  // cleanup job: DELETE WHERE expires_at < now()
+}
+
+// ADD NEW MODEL: school premises detection for anomaly flagging
+// Without this, FOREIGN_LOCATION anomaly rule has nothing to compare against
+// School admin defines their campus IP range or lat/lng + radius
+model TrustedScanZone {
+  id         String   @id @default(uuid())
+  school_id  String
+  label      String   // e.g. "Main Campus", "Branch - Sector 14"
+  ip_range   String?  // CIDR or prefix e.g. "103.21.58." — IP-based detection
+  latitude   Float?   // lat/lng + radius — GPS-based detection
+  longitude  Float?
+  radius_m   Int      @default(200) // metres from lat/lng centre point
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  school     School   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+
+  @@index([school_id])
+  @@index([school_id, is_active]) // active zones queried on every scan
+}
+
+// =============================================================================
+// ENUMS — unchanged
+// =============================================================================
 
 enum UserStatus {
   ACTIVE

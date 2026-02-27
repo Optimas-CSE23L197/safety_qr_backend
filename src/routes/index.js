@@ -3,7 +3,8 @@ const route = Router();
 
 // auth route
 import authRoute from "../modules/auth/auth.routes.js";
-import qrRoute from "../modules/qr_id/qr.routes.js";
+import superAdminRoute from "../modules/super_admin/superAdmin.routes.js";
+import tokenRoute from "../modules/token/token.routes.js";
 
 // Health check (load balancer friendly)
 route.get("/health", (req, res) => {
@@ -16,6 +17,7 @@ route.get("/health", (req, res) => {
 
 // auth route use
 route.use("/auth", authRoute);
-route.use("/qr", qrRoute);
+route.use("/super-admin", superAdminRoute);
+route.use("/token", tokenRoute);
 
 export default route;

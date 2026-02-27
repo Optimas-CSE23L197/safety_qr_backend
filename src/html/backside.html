@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #080809;
+        font-family: "Space Grotesk", sans-serif;
+        color: white;
+        padding: 48px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 56px;
+      }
+
+      .section-label {
+        font-family: "Space Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        color: #2a2a2a;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+        padding-left: 10px;
+        border-left: 2px solid #e8342a;
+      }
+
+      /* ── CARD SHELL ── */
+      .card {
+        width: 340px;
+        height: 214px;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 24px 64px rgba(0, 0, 0, 0.7),
+          0 0 60px rgba(232, 52, 42, 0.06);
+      }
+
+      /* ══════════════════════════════════════════
+     PRELOADED BACK
+  ══════════════════════════════════════════ */
+
+      .preloaded-back {
+        background: #0d0d0f;
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        grid-template-rows: 1fr auto;
+        height: 100%;
+      }
+
+      /* ── LEFT COLUMN — Photo + blood group ── */
+      .pl-left {
+        grid-row: 1 / 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px 0 0 16px;
+        gap: 0;
+        position: relative;
+      }
+
+      /* Subtle vertical accent line separating columns */
+      .pl-left::after {
+        content: "";
+        position: absolute;
+        top: 12px;
+        right: 0;
+        bottom: 12px;
+        width: 1px;
+        background: linear-gradient(
+          to bottom,
+          transparent,
+          rgba(232, 52, 42, 0.25) 30%,
+          rgba(232, 52, 42, 0.35) 60%,
+          transparent
+        );
+      }
+
+      .photo-wrap {
+        width: 56px;
+        height: 64px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(232, 52, 42, 0.1);
+        border: 1px solid rgba(232, 52, 42, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-bottom: 10px;
+      }
+
+      .photo-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .photo-initial {
+        font-family: "Space Mono", monospace;
+        font-size: 20px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      /* Blood group — BIG, always visible */
+      .blood-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        margin-bottom: 8px;
+      }
+
+      .blood-label {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .blood-value {
+        font-family: "Space Mono", monospace;
+        font-size: 22px;
+        font-weight: 700;
+        color: #f87171;
+        line-height: 1;
+        letter-spacing: -0.02em;
+      }
+
+      /* Allergy pill */
+      .allergy-pill {
+        background: rgba(251, 191, 36, 0.12);
+        border: 1px solid rgba(251, 191, 36, 0.3);
+        border-radius: 4px;
+        padding: 2px 6px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        max-width: 64px;
+      }
+
+      .allergy-icon {
+        font-size: 7px;
+      }
+
+      .allergy-text {
+        font-size: 6.5px;
+        font-weight: 600;
+        color: #fcd34d;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 48px;
+      }
+
+      /* ── RIGHT COLUMN — Student info ── */
+      .pl-right {
+        padding: 16px 16px 10px 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .student-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+        margin-bottom: 5px;
+      }
+
+      .class-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(232, 52, 42, 0.1);
+        border: 1px solid rgba(232, 52, 42, 0.2);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+
+      /* Safety measures — right side */
+      .safety-block {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .safety-title {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.2);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .safety-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 5px;
+      }
+
+      .safety-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #e8342a;
+        opacity: 0.6;
+        flex-shrink: 0;
+        margin-top: 3.5px;
+      }
+
+      .safety-text {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.35);
+        line-height: 1.45;
+        letter-spacing: 0.01em;
+      }
+
+      /* ── FOOTER — spans full width ── */
+      .pl-footer {
+        grid-column: 1 / 3;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 16px;
+        background: rgba(232, 52, 42, 0.07);
+        border-top: 1px solid rgba(232, 52, 42, 0.12);
+      }
+
+      .school-left {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .school-logo-box {
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        background: rgba(232, 52, 42, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 6px;
+        font-weight: 700;
+        color: #e8342a;
+        flex-shrink: 0;
+      }
+
+      .school-name-footer {
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.65);
+        letter-spacing: 0.02em;
+      }
+
+      .school-city-footer {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.2);
+        letter-spacing: 0.04em;
+      }
+
+      .resqid-footer {
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.5);
+        letter-spacing: 0.1em;
+      }
+
+      /* ══════════════════════════════════════════
+     BLANK BACK
+  ══════════════════════════════════════════ */
+
+      .blank-back {
+        background: #0d0d0f;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Faint diagonal texture */
+      .blank-back::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 12px,
+          rgba(232, 52, 42, 0.025) 12px,
+          rgba(232, 52, 42, 0.025) 13px
+        );
+        pointer-events: none;
+      }
+
+      .blank-top-bar {
+        height: 2.5px;
+        background: linear-gradient(
+          90deg,
+          #e8342a,
+          rgba(232, 52, 42, 0.3),
+          transparent
+        );
+        flex-shrink: 0;
+      }
+
+      .blank-content {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1px 1fr;
+        gap: 0;
+        padding: 12px 0 8px;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Center divider */
+      .blank-divider {
+        background: linear-gradient(
+          to bottom,
+          transparent,
+          rgba(232, 52, 42, 0.2) 25%,
+          rgba(232, 52, 42, 0.25) 75%,
+          transparent
+        );
+        width: 1px;
+        align-self: stretch;
+      }
+
+      /* ── LEFT: How to use ── */
+      .blank-left {
+        padding: 0 12px 0 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .blank-section-title {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.2);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+
+      .use-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .step-num {
+        width: 13px;
+        height: 13px;
+        border-radius: 3px;
+        background: rgba(232, 52, 42, 0.15);
+        border: 1px solid rgba(232, 52, 42, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: #e8342a;
+        flex-shrink: 0;
+        margin-top: 0.5px;
+      }
+
+      .step-text {
+        font-size: 7.5px;
+        color: rgba(255, 255, 255, 0.45);
+        line-height: 1.45;
+        letter-spacing: 0.01em;
+      }
+
+      /* ── RIGHT: First Aid ── */
+      .blank-right {
+        padding: 0 14px 0 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .aid-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 5px;
+        margin-bottom: 5px;
+      }
+
+      .aid-icon {
+        font-size: 9px;
+        flex-shrink: 0;
+        margin-top: 0.5px;
+      }
+
+      .aid-info {
+      }
+
+      .aid-label {
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 0.04em;
+        line-height: 1.2;
+      }
+
+      .aid-desc {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.22);
+        line-height: 1.4;
+        letter-spacing: 0.01em;
+      }
+
+      /* ── BLANK FOOTER ── */
+      .blank-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 16px;
+        background: rgba(232, 52, 42, 0.06);
+        border-top: 1px solid rgba(232, 52, 42, 0.1);
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .blank-school-block {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .blank-school-name {
+        font-size: 8px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.55);
+        letter-spacing: 0.02em;
+      }
+
+      .blank-school-contact {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.2);
+        font-family: "Space Mono", monospace;
+        letter-spacing: 0.03em;
+      }
+
+      .activate-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 1px;
+      }
+
+      .activate-label {
+        font-size: 6px;
+        color: rgba(255, 255, 255, 0.2);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .activate-cta {
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.7);
+        letter-spacing: 0.08em;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- PRELOADED BACK -->
+    <div>
+      <div class="section-label">Back · Preloaded — Student assigned</div>
+      <div class="card">
+        <div class="preloaded-back">
+          <!-- LEFT: Photo + blood + allergy -->
+          <div class="pl-left">
+            <div class="photo-wrap">
+              <div class="photo-initial">RS</div>
+            </div>
+
+            <div class="blood-block">
+              <div class="blood-label">Blood</div>
+              <div class="blood-value">B+</div>
+            </div>
+
+            <div class="allergy-pill">
+              <div class="allergy-icon">⚠️</div>
+              <div class="allergy-text">Peanuts</div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Name + class + safety -->
+          <div class="pl-right">
+            <div>
+              <div class="student-name">Rahul Sharma</div>
+              <div class="class-chip">Class 8 &nbsp;·&nbsp; Section A</div>
+              <div class="safety-block">
+                <div class="safety-title">In Emergency</div>
+                <div class="safety-row">
+                  <div class="safety-dot"></div>
+                  <div class="safety-text">
+                    Keep child calm, do not move if injured
+                  </div>
+                </div>
+                <div class="safety-row">
+                  <div class="safety-dot"></div>
+                  <div class="safety-text">
+                    Slide cover → scan QR → call guardian
+                  </div>
+                </div>
+                <div class="safety-row">
+                  <div class="safety-dot"></div>
+                  <div class="safety-text">
+                    Avoid giving food, water, or medication
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FOOTER: School info -->
+          <div class="pl-footer">
+            <div class="school-left">
+              <div class="school-logo-box">GV</div>
+              <div>
+                <div class="school-name-footer">Green Valley School</div>
+                <div class="school-city-footer">
+                  New Delhi · +91 11 2345 6789
+                </div>
+              </div>
+            </div>
+            <div class="resqid-footer">RESQID</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLANK BACK -->
+    <div>
+      <div class="section-label">Back · Blank — Not yet activated</div>
+      <div class="card">
+        <div class="blank-back">
+          <div class="blank-top-bar"></div>
+
+          <div class="blank-content">
+            <!-- LEFT: How to use -->
+            <div class="blank-left">
+              <div class="blank-section-title">How to use</div>
+
+              <div class="use-step">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                  Slide the cover up to reveal the QR code
+                </div>
+              </div>
+              <div class="use-step">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                  Scan with any phone camera — no app needed
+                </div>
+              </div>
+              <div class="use-step">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                  Tap
+                  <b style="color: rgba(255, 255, 255, 0.6)">"Call Guardian"</b>
+                  to reach parent instantly
+                </div>
+              </div>
+            </div>
+
+            <!-- DIVIDER -->
+            <div class="blank-divider"></div>
+
+            <!-- RIGHT: First aid -->
+            <div class="blank-right">
+              <div class="blank-section-title">First Aid</div>
+
+              <div class="aid-item">
+                <div class="aid-icon">🫀</div>
+                <div class="aid-info">
+                  <div class="aid-label">CPR (unresponsive)</div>
+                  <div class="aid-desc">
+                    30 chest compressions, 2 rescue breaths. Repeat.
+                  </div>
+                </div>
+              </div>
+
+              <div class="aid-item">
+                <div class="aid-icon">🫁</div>
+                <div class="aid-info">
+                  <div class="aid-label">Choking</div>
+                  <div class="aid-desc">
+                    5 back blows, 5 abdominal thrusts. Call 108.
+                  </div>
+                </div>
+              </div>
+
+              <div class="aid-item">
+                <div class="aid-icon">🩸</div>
+                <div class="aid-info">
+                  <div class="aid-label">Bleeding</div>
+                  <div class="aid-desc">
+                    Apply firm pressure. Do not remove cloth.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FOOTER -->
+          <div class="blank-footer">
+            <div class="blank-school-block">
+              <div class="blank-school-name">Green Valley School</div>
+              <div class="blank-school-contact">
+                +91 11 2345 6789 · New Delhi
+              </div>
+            </div>
+            <div class="activate-badge">
+              <div class="activate-label">www.resqid.com</div>
+              <div class="resqid-footer">RESQID</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

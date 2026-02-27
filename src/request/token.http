@@ -1,0 +1,28 @@
+### ! Generate a single token
+POST http://localhost:3000/api/v1/token/blank/single
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjEzNDk3MiwiZXhwIjoxNzcyMjIxMzcyfQ.OwpdoyRuNS669gdfNywG6DwLE2hLk2jrTYdxf6P8Bfw
+
+{
+  "schoolId": "9d02ff39-9c3b-4e4d-bb54-31fdfbc9561d",
+  "notes": "Single token for Ram"
+}
+
+###! Generate Bulk token
+POST http://localhost:3000/api/v1/token/blank/bulk
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0N2VlYjNkNC1lOTNlLTQ0OGMtYTE0NS1mM2YxYzI2NDhlMzAiLCJyb2xlIjoiQURNSU4iLCJzY2hvb2xJZCI6IjQxMGU2MWI4LTNkZGItNDlmOC04MGNmLTcxZDFmMTllZTZlMyIsImFjdG9yVHlwZSI6InNjaG9vbCIsImlhdCI6MTc3MjA5OTU1OSwiZXhwIjoxNzcyMTg1OTU5fQ.sSHyPjlVeah_3jaKBpO1vx02OCUXSHd6IvCJ4RmwRFQ
+
+{
+  "count": 10,
+  "notes": "Seminar batch"
+}
+
+###! pre loaded single
+POST http://localhost:3000/api/v1/token/preloaded/single
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0N2VlYjNkNC1lOTNlLTQ0OGMtYTE0NS1mM2YxYzI2NDhlMzAiLCJyb2xlIjoiQURNSU4iLCJzY2hvb2xJZCI6IjQxMGU2MWI4LTNkZGItNDlmOC04MGNmLTcxZDFmMTllZTZlMyIsImFjdG9yVHlwZSI6InNjaG9vbCIsImlhdCI6MTc3MjA5OTU1OSwiZXhwIjoxNzcyMTg1OTU5fQ.sSHyPjlVeah_3jaKBpO1vx02OCUXSHd6IvCJ4RmwRFQ
+
+{
+  "studentId": "13d0cd56-ff55-4b71-8e3b-c19bf0bc1f6f"
+}

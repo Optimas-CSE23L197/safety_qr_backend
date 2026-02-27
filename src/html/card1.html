@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ResQID Card Preview</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #0a0a0c;
+        font-family: "Space Grotesk", sans-serif;
+        color: white;
+        padding: 40px 20px;
+        min-height: 100vh;
+      }
+
+      .page-title {
+        text-align: center;
+        font-family: "Space Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: #444;
+        text-transform: uppercase;
+        margin-bottom: 60px;
+      }
+
+      .section {
+        max-width: 960px;
+        margin: 0 auto 80px;
+      }
+
+      .section-label {
+        font-family: "Space Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        color: #333;
+        text-transform: uppercase;
+        margin-bottom: 24px;
+        padding-left: 4px;
+        border-left: 2px solid #e8342a;
+        padding-left: 12px;
+      }
+
+      .cards-row {
+        display: flex;
+        gap: 40px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      /* Card container — exact CR80 proportions scaled up 3x for preview */
+      .card-preview {
+        position: relative;
+      }
+
+      .card-label {
+        font-size: 10px;
+        color: #444;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        font-family: "Space Mono", monospace;
+      }
+
+      /* ═══════════════════════════════════════
+     CARD FRONT — QR FACE
+  ═══════════════════════════════════════ */
+      .card {
+        width: 340px;
+        height: 214px;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.06),
+          0 20px 60px rgba(0, 0, 0, 0.6),
+          0 0 80px rgba(232, 52, 42, 0.08);
+      }
+
+      /* ── FRONT CARD ── */
+      .card-front {
+        background: #0d0d0f;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 20px 20px 20px;
+      }
+
+      .card-front::before {
+        content: "";
+        position: absolute;
+        top: -60px;
+        right: -30px;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(232, 52, 42, 0.13) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .card-front::after {
+        content: "";
+        position: absolute;
+        bottom: -50px;
+        left: 20px;
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(232, 52, 42, 0.08) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .stripe-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(232, 52, 42, 0.05) 0%,
+          transparent 40%,
+          transparent 60%,
+          rgba(232, 52, 42, 0.03) 100%
+        );
+        pointer-events: none;
+      }
+
+      /* Left section */
+      .front-left {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        z-index: 1;
+        width: 110px;
+        gap: 0;
+      }
+
+      .brand-top {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .brand-name {
+        font-family: "Space Mono", monospace;
+        font-size: 11px;
+        font-weight: 700;
+        color: #e8342a;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      .brand-tagline {
+        font-size: 8px;
+        color: rgba(255, 255, 255, 0.35);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+
+      .emergency-label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e8342a;
+        flex-shrink: 0;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(232, 52, 42, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 0 5px rgba(232, 52, 42, 0);
+        }
+      }
+
+      .emergency-text {
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+
+      .card-number-block {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .card-number-label {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .card-number-val {
+        font-family: "Space Mono", monospace;
+        font-size: 8px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.7);
+        letter-spacing: 0.05em;
+      }
+
+      /* Divider */
+      .front-divider {
+        width: 1px;
+        height: 150px;
+        background: linear-gradient(
+          to bottom,
+          transparent,
+          rgba(232, 52, 42, 0.6),
+          rgba(232, 52, 42, 0.8),
+          rgba(232, 52, 42, 0.6),
+          transparent
+        );
+        z-index: 1;
+        flex-shrink: 0;
+      }
+
+      /* Right QR section */
+      .front-right {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        gap: 8px;
+        flex: 1;
+      }
+
+      .qr-wrapper {
+        position: relative;
+        width: 120px;
+        height: 120px;
+      }
+
+      .qr-wrapper::before {
+        content: "";
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        width: 16px;
+        height: 16px;
+        border-top: 2px solid #e8342a;
+        border-left: 2px solid #e8342a;
+      }
+
+      .qr-wrapper::after {
+        content: "";
+        position: absolute;
+        bottom: -4px;
+        right: -4px;
+        width: 16px;
+        height: 16px;
+        border-bottom: 2px solid #e8342a;
+        border-right: 2px solid #e8342a;
+      }
+
+      .qr-corner-tr {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 16px;
+        height: 16px;
+        border-top: 2px solid #e8342a;
+        border-right: 2px solid #e8342a;
+      }
+
+      .qr-corner-bl {
+        position: absolute;
+        bottom: -4px;
+        left: -4px;
+        width: 16px;
+        height: 16px;
+        border-bottom: 2px solid #e8342a;
+        border-left: 2px solid #e8342a;
+      }
+
+      .qr-placeholder {
+        width: 100%;
+        height: 100%;
+        background: white;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+      }
+
+      .qr-grid {
+        width: 100%;
+        height: 100%;
+        background-image:
+          repeating-linear-gradient(#000 0 3px, transparent 3px 6px),
+          repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px);
+        background-size: 6px 6px;
+        opacity: 0.85;
+        border-radius: 2px;
+      }
+
+      .scan-hint-front {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.3);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      /* SOS badge */
+      .sos-badge-front {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: #e8342a;
+        color: white;
+        font-family: "Space Mono", monospace;
+        font-size: 8px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.1em;
+        z-index: 10;
+      }
+
+      /* ── BACK CARD ── */
+      .card-back {
+        background: #0d0d0f;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .back-top-bar {
+        height: 3px;
+        background: linear-gradient(
+          90deg,
+          #e8342a,
+          rgba(232, 52, 42, 0.4),
+          transparent
+        );
+        flex-shrink: 0;
+      }
+
+      .back-content {
+        flex: 1;
+        display: flex;
+        padding: 14px 16px 10px;
+        gap: 14px;
+        position: relative;
+      }
+
+      .back-content::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 150px;
+        height: 214px;
+        background: linear-gradient(
+          135deg,
+          transparent 40%,
+          rgba(232, 52, 42, 0.05) 100%
+        );
+        pointer-events: none;
+      }
+
+      .back-photo-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+        width: 64px;
+      }
+
+      .photo-frame {
+        width: 60px;
+        height: 72px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid rgba(232, 52, 42, 0.4);
+        background: rgba(232, 52, 42, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .photo-initials-back {
+        font-family: "Space Mono", monospace;
+        font-size: 18px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      .year-tag {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.05em;
+      }
+
+      .back-info-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .student-name-back {
+        font-size: 15px;
+        font-weight: 700;
+        color: white;
+        line-height: 1.2;
+        margin-bottom: 6px;
+      }
+
+      .meta-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 8px;
+      }
+
+      .meta-chip {
+        background: rgba(232, 52, 42, 0.12);
+        border: 0.5px solid rgba(232, 52, 42, 0.3);
+        border-radius: 3px;
+        padding: 2px 7px;
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+        letter-spacing: 0.03em;
+      }
+
+      .medical-row-back {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .med-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .med-key-back {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .med-val-back {
+        font-family: "Space Mono", monospace;
+        font-size: 9px;
+        font-weight: 700;
+        color: #f87171;
+      }
+
+      .back-footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 16px;
+        background: rgba(232, 52, 42, 0.07);
+        border-top: 0.5px solid rgba(232, 52, 42, 0.15);
+        flex-shrink: 0;
+      }
+
+      .school-logo-back {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+        background: rgba(232, 52, 42, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: #e8342a;
+        flex-shrink: 0;
+      }
+
+      .school-info-back {
+        flex: 1;
+      }
+      .school-name-back {
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .school-sub-back {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .verified-back {
+        font-size: 7px;
+        color: #e8342a;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+
+      .verified-dot-back {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #e8342a;
+      }
+
+      /* ── TOP COVER ── */
+      .card-cover {
+        background: #0d0d0f;
+        display: flex;
+      }
+
+      .cover-left {
+        width: 108px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 16px 14px 16px 16px;
+        background: rgba(232, 52, 42, 0.1);
+        border-right: 0.5px solid rgba(232, 52, 42, 0.2);
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .cover-left::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: -14px;
+        bottom: 0;
+        width: 28px;
+        background: #0d0d0f;
+        clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%);
+        z-index: 1;
+      }
+
+      .cover-school-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 2;
+        position: relative;
+      }
+
+      .cover-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 5px;
+        background: rgba(232, 52, 42, 0.2);
+        border: 1px solid rgba(232, 52, 42, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 9px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      .cover-school-name {
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.3;
+        max-width: 70px;
+      }
+      .cover-school-sub {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.25);
+        line-height: 1.4;
+        max-width: 70px;
+      }
+
+      .cover-slide-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        z-index: 2;
+        position: relative;
+      }
+      .cover-arrow {
+        font-size: 12px;
+        color: #e8342a;
+        opacity: 0.7;
+      }
+      .cover-slide-text {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.35);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+
+      .cover-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 14px 16px 14px 22px;
+        position: relative;
+      }
+
+      .cover-right::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(232, 52, 42, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(232, 52, 42, 0.05) 1px, transparent 1px);
+        background-size: 16px 16px;
+        pointer-events: none;
+      }
+
+      .cover-sos-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cover-sos-tag {
+        background: #e8342a;
+        color: white;
+        font-family: "Space Mono", monospace;
+        font-size: 8px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 3px;
+        letter-spacing: 0.08em;
+      }
+
+      .cover-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: 0.03em;
+      }
+      .cover-sub {
+        font-size: 8px;
+        color: rgba(255, 255, 255, 0.35);
+        letter-spacing: 0.04em;
+        margin-top: 3px;
+        line-height: 1.4;
+      }
+
+      .cover-helplines {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .helpline-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 8px;
+        background: rgba(232, 52, 42, 0.08);
+        border-radius: 4px;
+        border-left: 2px solid rgba(232, 52, 42, 0.4);
+      }
+
+      .helpline-left-inner {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .helpline-ico {
+        font-size: 10px;
+      }
+      .helpline-lbl {
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        letter-spacing: 0.03em;
+      }
+      .helpline-num {
+        font-family: "Space Mono", monospace;
+        font-size: 11px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      .cover-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+
+      .deter-text {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.2);
+        line-height: 1.5;
+        max-width: 130px;
+      }
+      .deter-text strong {
+        color: rgba(255, 255, 255, 0.45);
+      }
+
+      .cover-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+      }
+      .cover-brand-name {
+        font-family: "Space Mono", monospace;
+        font-size: 8px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.6);
+        letter-spacing: 0.1em;
+      }
+      .cover-brand-url {
+        font-size: 6px;
+        color: rgba(255, 255, 255, 0.15);
+        letter-spacing: 0.05em;
+      }
+
+      /* ── LAYOUT ── */
+      .pair {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+      }
+
+      .flip-hint {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 4px;
+        margin-top: 12px;
+      }
+
+      .flip-line {
+        flex: 1;
+        height: 1px;
+        background: #1a1a1a;
+      }
+      .flip-text {
+        font-size: 9px;
+        color: #333;
+        letter-spacing: 0.08em;
+        font-family: "Space Mono", monospace;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">ResQID · Card Design System · Preview</div>
+
+    <!-- PRELOADED CARD -->
+    <div class="section">
+      <div class="section-label">Preloaded Card — Student assigned</div>
+      <div class="cards-row">
+        <!-- FRONT -->
+        <div class="card-preview">
+          <div class="card-label">Front · QR Face</div>
+          <div class="card card-front">
+            <div class="stripe-overlay"></div>
+            <div class="sos-badge-front">SOS</div>
+
+            <div class="front-left">
+              <div class="brand-top">
+                <div class="brand-name">ResQID</div>
+                <div class="brand-tagline">Emergency<br />Safety Card</div>
+              </div>
+              <div class="emergency-label">
+                <div class="pulse-dot"></div>
+                <div class="emergency-text">Scan in<br />emergency</div>
+              </div>
+              <div class="card-number-block">
+                <div class="card-number-label">Card No.</div>
+                <div class="card-number-val">SCH-GVS01-2026-A4F9B2</div>
+              </div>
+            </div>
+
+            <div class="front-divider"></div>
+
+            <div class="front-right">
+              <div class="qr-wrapper">
+                <div class="qr-corner-tr"></div>
+                <div class="qr-corner-bl"></div>
+                <div class="qr-placeholder">
+                  <div class="qr-grid"></div>
+                </div>
+              </div>
+              <div class="scan-hint-front">resqid.com</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BACK -->
+        <div class="card-preview">
+          <div class="card-label">Back · Student Info</div>
+          <div class="card card-back">
+            <div class="back-top-bar"></div>
+            <div class="back-content">
+              <div class="back-photo-col">
+                <div class="photo-frame">
+                  <div class="photo-initials-back">RS</div>
+                </div>
+                <div class="year-tag">2025–26</div>
+              </div>
+              <div class="back-info-col">
+                <div>
+                  <div class="student-name-back">Rahul Sharma</div>
+                  <div class="meta-chips">
+                    <div class="meta-chip">Class 8</div>
+                    <div class="meta-chip">Sec A</div>
+                  </div>
+                  <div class="medical-row-back">
+                    <div class="med-item">
+                      <div class="med-key-back">Blood</div>
+                      <div class="med-val-back">B+</div>
+                    </div>
+                    <div class="med-item">
+                      <div class="med-key-back">⚠</div>
+                      <div class="med-val-back" style="font-size: 7px">
+                        Peanuts
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="back-footer">
+              <div class="school-logo-back">GV</div>
+              <div class="school-info-back">
+                <div class="school-name-back">Green Valley School</div>
+                <div class="school-sub-back">Verified Institution</div>
+              </div>
+              <div class="verified-back">
+                <div class="verified-dot-back"></div>
+                ResQID
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOP COVER -->
+        <div class="card-preview">
+          <div class="card-label">Top Cover · Sliding Case</div>
+          <div class="card card-cover">
+            <div class="cover-left">
+              <div class="cover-school-brand">
+                <div class="cover-logo">GV</div>
+                <div class="cover-school-name">Green Valley School</div>
+                <div class="cover-school-sub">Student Safety Program</div>
+              </div>
+              <div class="cover-slide-hint">
+                <div class="cover-arrow">→</div>
+                <div class="cover-slide-text">Slide to<br />reveal QR</div>
+              </div>
+            </div>
+
+            <div class="cover-right">
+              <div>
+                <div class="cover-sos-row">
+                  <div class="cover-sos-tag">SOS</div>
+                  <div class="cover-title">Emergency Card</div>
+                </div>
+                <div class="cover-sub">
+                  Slide open and scan QR if this child needs help
+                </div>
+              </div>
+
+              <div class="cover-helplines">
+                <div class="helpline-item">
+                  <div class="helpline-left-inner">
+                    <div class="helpline-ico">🚔</div>
+                    <div class="helpline-lbl">Police</div>
+                  </div>
+                  <div class="helpline-num">100</div>
+                </div>
+                <div class="helpline-item">
+                  <div class="helpline-left-inner">
+                    <div class="helpline-ico">🚑</div>
+                    <div class="helpline-lbl">Ambulance</div>
+                  </div>
+                  <div class="helpline-num">108</div>
+                </div>
+                <div class="helpline-item">
+                  <div class="helpline-left-inner">
+                    <div class="helpline-ico">👧</div>
+                    <div class="helpline-lbl">Child Helpline</div>
+                  </div>
+                  <div class="helpline-num">1098</div>
+                </div>
+              </div>
+
+              <div class="cover-bottom">
+                <div class="deter-text">
+                  <strong>⚠ Scanning is logged.</strong><br />IP, device &amp;
+                  location recorded.<br />Misuse reported to school.
+                </div>
+                <div class="cover-brand">
+                  <div class="cover-brand-name">RESQID</div>
+                  <div class="cover-brand-url">resqid.com</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLANK CARD -->
+    <div class="section">
+      <div class="section-label">Blank Card — No student assigned yet</div>
+      <div class="cards-row">
+        <div class="card-preview">
+          <div class="card-label">Front · QR Face (identical)</div>
+          <div class="card card-front">
+            <div class="stripe-overlay"></div>
+            <div class="sos-badge-front">SOS</div>
+            <div class="front-left">
+              <div class="brand-top">
+                <div class="brand-name">ResQID</div>
+                <div class="brand-tagline">Emergency<br />Safety Card</div>
+              </div>
+              <div class="emergency-label">
+                <div class="pulse-dot"></div>
+                <div class="emergency-text">Scan in<br />emergency</div>
+              </div>
+              <div class="card-number-block">
+                <div class="card-number-label">Card No.</div>
+                <div class="card-number-val">SCH-GVS01-2026-C9E3D1</div>
+              </div>
+            </div>
+            <div class="front-divider"></div>
+            <div class="front-right">
+              <div class="qr-wrapper">
+                <div class="qr-corner-tr"></div>
+                <div class="qr-corner-bl"></div>
+                <div class="qr-placeholder"><div class="qr-grid"></div></div>
+              </div>
+              <div class="scan-hint-front">resqid.com</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-preview">
+          <div class="card-label">Back · Blank (no student)</div>
+          <div class="card card-back">
+            <div class="back-top-bar"></div>
+            <div class="back-content">
+              <div class="back-photo-col">
+                <div
+                  class="photo-frame"
+                  style="background: rgba(255, 255, 255, 0.03)"
+                >
+                  <span style="font-size: 24px; opacity: 0.15">👤</span>
+                </div>
+                <div class="year-tag">BLANK</div>
+              </div>
+              <div class="back-info-col">
+                <div
+                  style="
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    height: 100%;
+                    gap: 6px;
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 14px;
+                      font-weight: 700;
+                      color: rgba(255, 255, 255, 0.5);
+                    "
+                  >
+                    Emergency Card
+                  </div>
+                  <div
+                    style="
+                      font-size: 8px;
+                      color: rgba(255, 255, 255, 0.2);
+                      line-height: 1.6;
+                    "
+                  >
+                    Scan QR to register.<br />
+                    Carries critical info<br />when activated.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="back-footer">
+              <div class="school-logo-back">GV</div>
+              <div class="school-info-back">
+                <div class="school-name-back">Green Valley School</div>
+                <div class="school-sub-back">Verified Institution</div>
+              </div>
+              <div class="verified-back">
+                <div class="verified-dot-back"></div>
+                ResQID
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

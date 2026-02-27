@@ -1,0 +1,1296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ResQID · Vertical Card Preview</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #080809;
+        font-family: "Space Grotesk", sans-serif;
+        color: white;
+        padding: 48px 40px;
+        min-height: 100vh;
+      }
+
+      .page-title {
+        font-family: "Space Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 0.2em;
+        color: #252525;
+        text-transform: uppercase;
+        text-align: center;
+        margin-bottom: 52px;
+      }
+
+      .cards-row {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 40px;
+        flex-wrap: wrap;
+      }
+
+      .card-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .card-col-label {
+        font-family: "Space Mono", monospace;
+        font-size: 8px;
+        letter-spacing: 0.14em;
+        color: #2a2a2a;
+        text-transform: uppercase;
+        padding-left: 8px;
+        border-left: 2px solid #e8342a;
+        align-self: flex-start;
+      }
+
+      /* ── VERTICAL CARD SHELL ──
+     Portrait: 54mm × 85.6mm
+     Preview scale: 214px × 340px
+  ── */
+      .card {
+        width: 214px;
+        height: 340px;
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+        flex-shrink: 0;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 24px 64px rgba(0, 0, 0, 0.7),
+          0 0 60px rgba(232, 52, 42, 0.07);
+      }
+
+      /* ══════════════════════════════════
+     VERTICAL FRONT — QR face
+  ══════════════════════════════════ */
+      .vfront {
+        background: #0d0d0f;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+        position: relative;
+      }
+
+      /* Top glow */
+      .vfront::before {
+        content: "";
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(232, 52, 42, 0.15) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      /* Bottom glow */
+      .vfront::after {
+        content: "";
+        position: absolute;
+        bottom: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(232, 52, 42, 0.07) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      /* Diagonal stripe */
+      .vf-stripe {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          160deg,
+          rgba(232, 52, 42, 0.06) 0%,
+          transparent 45%,
+          transparent 65%,
+          rgba(232, 52, 42, 0.04) 100%
+        );
+        pointer-events: none;
+      }
+
+      /* Top header zone */
+      .vf-header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 18px 0;
+        z-index: 1;
+      }
+
+      .vf-brand-name {
+        font-family: "Space Mono", monospace;
+        font-size: 11px;
+        font-weight: 700;
+        color: #e8342a;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .vf-sos {
+        background: #e8342a;
+        color: white;
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.1em;
+      }
+
+      /* Horizontal divider below header */
+      .vf-hdivider {
+        width: calc(100% - 36px);
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(232, 52, 42, 0.4),
+          rgba(232, 52, 42, 0.5),
+          transparent
+        );
+        margin: 12px 0 0;
+        z-index: 1;
+      }
+
+      /* QR zone — center, hero element */
+      .vf-qr-zone {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        gap: 10px;
+      }
+
+      .vf-qr-wrap {
+        position: relative;
+        width: 130px;
+        height: 130px;
+      }
+
+      .vf-qr-wrap::before {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        width: 18px;
+        height: 18px;
+        border-top: 2px solid #e8342a;
+        border-left: 2px solid #e8342a;
+      }
+      .vf-qr-wrap::after {
+        content: "";
+        position: absolute;
+        bottom: -5px;
+        right: -5px;
+        width: 18px;
+        height: 18px;
+        border-bottom: 2px solid #e8342a;
+        border-right: 2px solid #e8342a;
+      }
+
+      .vf-corner-tr {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        width: 18px;
+        height: 18px;
+        border-top: 2px solid #e8342a;
+        border-right: 2px solid #e8342a;
+      }
+      .vf-corner-bl {
+        position: absolute;
+        bottom: -5px;
+        left: -5px;
+        width: 18px;
+        height: 18px;
+        border-bottom: 2px solid #e8342a;
+        border-left: 2px solid #e8342a;
+      }
+
+      .vf-qr-box {
+        width: 100%;
+        height: 100%;
+        background: white;
+        border-radius: 6px;
+        padding: 8px;
+      }
+
+      .vf-qr-grid {
+        width: 100%;
+        height: 100%;
+        background-image:
+          repeating-linear-gradient(#000 0 3px, transparent 3px 6px),
+          repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px);
+        background-size: 6px 6px;
+        opacity: 0.82;
+        border-radius: 3px;
+      }
+
+      .vf-scan-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .vf-pulse {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #e8342a;
+        animation: pulse 1.5s ease-in-out infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(232, 52, 42, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 0 5px rgba(232, 52, 42, 0);
+        }
+      }
+
+      .vf-scan-text {
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.45);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /* Horizontal divider above footer */
+      .vf-fdivider {
+        width: calc(100% - 36px);
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(232, 52, 42, 0.4),
+          rgba(232, 52, 42, 0.5),
+          transparent
+        );
+        z-index: 1;
+      }
+
+      /* Footer zone */
+      .vf-footer {
+        width: 100%;
+        padding: 12px 18px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 1;
+      }
+
+      .vf-card-num-label {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.22);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .vf-card-num {
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.6);
+        letter-spacing: 0.05em;
+      }
+
+      .vf-url {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.18);
+        letter-spacing: 0.08em;
+        font-family: "Space Mono", monospace;
+        align-self: flex-end;
+      }
+
+      /* ══════════════════════════════════
+     VERTICAL BACK — PRELOADED
+  ══════════════════════════════════ */
+      .vback-pre {
+        background: #0d0d0f;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+      }
+
+      /* Left accent bar */
+      .vbp-accent {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(
+          to bottom,
+          #e8342a,
+          rgba(232, 52, 42, 0.4),
+          transparent
+        );
+        z-index: 10;
+      }
+
+      /* Top: photo + name hero block */
+      .vbp-hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 22px 18px 16px;
+        gap: 10px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vbp-photo {
+        width: 72px;
+        height: 80px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(232, 52, 42, 0.35);
+        background: rgba(232, 52, 42, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .vbp-initial {
+        font-family: "Space Mono", monospace;
+        font-size: 26px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      .vbp-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #fff;
+        text-align: center;
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+      }
+
+      .vbp-class {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(232, 52, 42, 0.1);
+        border: 0.5px solid rgba(232, 52, 42, 0.25);
+        border-radius: 4px;
+        padding: 2px 10px;
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.55);
+        letter-spacing: 0.06em;
+      }
+
+      /* Horizontal separator */
+      .vbp-sep {
+        width: calc(100% - 36px);
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(232, 52, 42, 0.3),
+          transparent
+        );
+        align-self: center;
+        flex-shrink: 0;
+      }
+
+      /* Medical row — blood group prominent */
+      .vbp-medical {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 12px 18px;
+        flex-shrink: 0;
+        z-index: 1;
+      }
+
+      .vbp-blood-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .vbp-blood-label {
+        font-size: 6px;
+        color: rgba(255, 255, 255, 0.22);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .vbp-blood-val {
+        font-family: "Space Mono", monospace;
+        font-size: 24px;
+        font-weight: 700;
+        color: #f87171;
+        line-height: 1;
+      }
+
+      .vbp-med-divider {
+        width: 1px;
+        height: 36px;
+        background: rgba(232, 52, 42, 0.2);
+      }
+
+      .vbp-allergy-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .vbp-allergy-label {
+        font-size: 6px;
+        color: rgba(255, 255, 255, 0.22);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .vbp-allergy-pill {
+        background: rgba(251, 191, 36, 0.1);
+        border: 0.5px solid rgba(251, 191, 36, 0.3);
+        border-radius: 4px;
+        padding: 3px 8px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+
+      .vbp-allergy-text {
+        font-size: 8px;
+        font-weight: 600;
+        color: #fcd34d;
+      }
+
+      /* Safety tips */
+      .vbp-safety {
+        flex: 1;
+        padding: 0 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        z-index: 1;
+      }
+
+      .vbp-safety-title {
+        font-size: 6px;
+        color: rgba(255, 255, 255, 0.18);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .vbp-tip-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+
+      .vbp-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #e8342a;
+        opacity: 0.5;
+        flex-shrink: 0;
+        margin-top: 4px;
+      }
+
+      .vbp-tip {
+        font-size: 7.5px;
+        color: rgba(255, 255, 255, 0.32);
+        line-height: 1.45;
+      }
+
+      /* Footer */
+      .vbp-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 18px;
+        background: rgba(232, 52, 42, 0.06);
+        border-top: 0.5px solid rgba(232, 52, 42, 0.12);
+        flex-shrink: 0;
+        z-index: 1;
+      }
+
+      .vbp-school-row {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .vbp-logo {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+        background: rgba(232, 52, 42, 0.2);
+        border: 0.5px solid rgba(232, 52, 42, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 6px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      .vbp-school-name {
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.55);
+      }
+      .vbp-school-city {
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.2);
+      }
+      .vbp-resqid {
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.5);
+        letter-spacing: 0.1em;
+      }
+
+      /* ══════════════════════════════════
+     VERTICAL BACK — BLANK
+  ══════════════════════════════════ */
+      .vback-blank {
+        background: #0d0d0f;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .vbb-texture {
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 12px,
+          rgba(232, 52, 42, 0.025) 12px,
+          rgba(232, 52, 42, 0.025) 13px
+        );
+        pointer-events: none;
+      }
+
+      /* Top branding block */
+      .vbb-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 18px 14px;
+        gap: 6px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vbb-brand-name {
+        font-family: "Space Mono", monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: #e8342a;
+        letter-spacing: 0.14em;
+      }
+
+      .vbb-brand-sub {
+        font-size: 7.5px;
+        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .vbb-activate {
+        background: rgba(232, 52, 42, 0.1);
+        border: 0.5px solid rgba(232, 52, 42, 0.3);
+        border-radius: 20px;
+        padding: 3px 12px;
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.8);
+        letter-spacing: 0.06em;
+        margin-top: 2px;
+      }
+
+      .vbb-sep {
+        width: calc(100% - 36px);
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(232, 52, 42, 0.3),
+          transparent
+        );
+        align-self: center;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* How to use */
+      .vbb-howto {
+        padding: 14px 18px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vbb-sec-title {
+        font-size: 6px;
+        color: rgba(255, 255, 255, 0.18);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .vbb-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .vbb-step-num {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        background: rgba(232, 52, 42, 0.15);
+        border: 0.5px solid rgba(232, 52, 42, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: #e8342a;
+        flex-shrink: 0;
+      }
+
+      .vbb-step-text {
+        font-size: 8px;
+        color: rgba(255, 255, 255, 0.38);
+        line-height: 1.45;
+        padding-top: 1px;
+      }
+
+      .vbb-sep2 {
+        width: calc(100% - 36px);
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(255, 255, 255, 0.05),
+          transparent
+        );
+        align-self: center;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* First aid */
+      .vbb-aid {
+        padding: 8px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        flex: 1;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vbb-aid-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .vbb-aid-icon {
+        font-size: 12px;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .vbb-aid-label {
+        font-size: 8px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.42);
+        letter-spacing: 0.03em;
+      }
+      .vbb-aid-desc {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.2);
+        line-height: 1.4;
+      }
+
+      /* Footer */
+      .vbb-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 18px;
+        background: rgba(232, 52, 42, 0.05);
+        border-top: 0.5px solid rgba(232, 52, 42, 0.1);
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vbb-school-name {
+        font-size: 8px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.45);
+      }
+      .vbb-school-phone {
+        font-family: "Space Mono", monospace;
+        font-size: 6.5px;
+        color: rgba(255, 255, 255, 0.18);
+      }
+      .vbb-resqid {
+        font-family: "Space Mono", monospace;
+        font-size: 7px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.45);
+        letter-spacing: 0.1em;
+      }
+
+      /* ══════════════════════════════════
+     VERTICAL TOP COVER
+  ══════════════════════════════════ */
+      .vcover {
+        background: #0d0d0f;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .vcover-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(232, 52, 42, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(232, 52, 42, 0.04) 1px, transparent 1px);
+        background-size: 14px 14px;
+        pointer-events: none;
+      }
+
+      /* Top accent */
+      .vcover-topbar {
+        height: 3px;
+        background: linear-gradient(
+          90deg,
+          #e8342a,
+          rgba(232, 52, 42, 0.5),
+          transparent
+        );
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* School brand at top */
+      .vcover-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 18px 18px 14px;
+        gap: 8px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vcover-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: rgba(232, 52, 42, 0.15);
+        border: 1px solid rgba(232, 52, 42, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Space Mono", monospace;
+        font-size: 12px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      .vcover-school-name {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.75);
+        text-align: center;
+        letter-spacing: 0.02em;
+      }
+      .vcover-school-sub {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.22);
+        text-align: center;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /* Separator */
+      .vcover-sep {
+        width: calc(100% - 36px);
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(232, 52, 42, 0.35),
+          transparent
+        );
+        align-self: center;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* SOS + Emergency heading */
+      .vcover-heading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 14px 18px 10px;
+        gap: 6px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vcover-sos-tag {
+        background: #e8342a;
+        color: white;
+        font-family: "Space Mono", monospace;
+        font-size: 9px;
+        font-weight: 700;
+        padding: 4px 14px;
+        border-radius: 4px;
+        letter-spacing: 0.1em;
+      }
+
+      .vcover-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: 0.02em;
+        text-align: center;
+      }
+      .vcover-sub {
+        font-size: 8px;
+        color: rgba(255, 255, 255, 0.28);
+        text-align: center;
+        line-height: 1.5;
+        max-width: 160px;
+      }
+
+      /* Slide hint */
+      .vcover-slide {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vcover-arrow {
+        font-size: 10px;
+        color: #e8342a;
+        opacity: 0.6;
+      }
+      .vcover-slide-text {
+        font-size: 7.5px;
+        color: rgba(255, 255, 255, 0.28);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /* Helplines */
+      .vcover-helplines {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 0 18px;
+        flex: 1;
+        justify-content: center;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vcover-helpline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 12px;
+        background: rgba(232, 52, 42, 0.07);
+        border-radius: 6px;
+        border-left: 2px solid rgba(232, 52, 42, 0.35);
+      }
+
+      .vch-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .vch-icon {
+        font-size: 12px;
+      }
+      .vch-label {
+        font-size: 8.5px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.55);
+      }
+      .vch-num {
+        font-family: "Space Mono", monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: #e8342a;
+      }
+
+      /* Footer */
+      .vcover-footer {
+        padding: 10px 18px 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .vcover-deter {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.18);
+        text-align: center;
+        line-height: 1.5;
+        letter-spacing: 0.02em;
+      }
+
+      .vcover-deter strong {
+        color: rgba(255, 255, 255, 0.38);
+      }
+
+      .vcover-brand-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+      }
+
+      .vcover-brand-name {
+        font-family: "Space Mono", monospace;
+        font-size: 8px;
+        font-weight: 700;
+        color: rgba(232, 52, 42, 0.5);
+        letter-spacing: 0.12em;
+      }
+      .vcover-brand-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: rgba(232, 52, 42, 0.3);
+      }
+      .vcover-brand-url {
+        font-size: 7px;
+        color: rgba(255, 255, 255, 0.14);
+        letter-spacing: 0.05em;
+        font-family: "Space Mono", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-title">
+      ResQID · Vertical Card Design · Portrait 54 × 85.6mm
+    </div>
+
+    <div class="cards-row">
+      <!-- FRONT -->
+      <div class="card-col">
+        <div class="card-col-label">Front · QR Face</div>
+        <div class="card vfront">
+          <div class="vf-stripe"></div>
+
+          <div class="vf-header">
+            <div class="vf-brand-name">ResQID</div>
+            <div class="vf-sos">SOS</div>
+          </div>
+
+          <div class="vf-hdivider"></div>
+
+          <div class="vf-qr-zone">
+            <div class="vf-qr-wrap">
+              <div class="vf-corner-tr"></div>
+              <div class="vf-corner-bl"></div>
+              <div class="vf-qr-box"><div class="vf-qr-grid"></div></div>
+            </div>
+            <div class="vf-scan-label">
+              <div class="vf-pulse"></div>
+              <div class="vf-scan-text">Scan in emergency</div>
+            </div>
+          </div>
+
+          <div class="vf-fdivider"></div>
+
+          <div class="vf-footer">
+            <div>
+              <div class="vf-card-num-label">Card No.</div>
+              <div class="vf-card-num">SCH-GVS01-2026-A4F9B2</div>
+            </div>
+            <div class="vf-url">resqid.com</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRELOADED BACK -->
+      <div class="card-col">
+        <div class="card-col-label">Back · Preloaded</div>
+        <div class="card vback-pre">
+          <div class="vbp-accent"></div>
+
+          <div class="vbp-hero">
+            <div class="vbp-photo"><div class="vbp-initial">RS</div></div>
+            <div class="vbp-name">Rahul Sharma</div>
+            <div class="vbp-class">Class 8 · Section A</div>
+          </div>
+
+          <div class="vbp-sep"></div>
+
+          <div class="vbp-medical">
+            <div class="vbp-blood-block">
+              <div class="vbp-blood-label">Blood Group</div>
+              <div class="vbp-blood-val">B+</div>
+            </div>
+            <div class="vbp-med-divider"></div>
+            <div class="vbp-allergy-block">
+              <div class="vbp-allergy-label">Allergy</div>
+              <div class="vbp-allergy-pill">
+                <span style="font-size: 9px">⚠️</span>
+                <div class="vbp-allergy-text">Peanuts</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="vbp-sep"></div>
+
+          <div class="vbp-safety">
+            <div class="vbp-safety-title">In Emergency</div>
+            <div class="vbp-tip-row">
+              <div class="vbp-dot"></div>
+              <div class="vbp-tip">Keep calm. Do not move if injured.</div>
+            </div>
+            <div class="vbp-tip-row">
+              <div class="vbp-dot"></div>
+              <div class="vbp-tip">Slide cover → Scan QR → Call guardian.</div>
+            </div>
+            <div class="vbp-tip-row">
+              <div class="vbp-dot"></div>
+              <div class="vbp-tip">Avoid food, water, or medication.</div>
+            </div>
+          </div>
+
+          <div class="vbp-footer">
+            <div class="vbp-school-row">
+              <div class="vbp-logo">GV</div>
+              <div>
+                <div class="vbp-school-name">Green Valley School</div>
+                <div class="vbp-school-city">New Delhi</div>
+              </div>
+            </div>
+            <div class="vbp-resqid">RESQID</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP COVER -->
+      <div class="card-col">
+        <div class="card-col-label">Top Cover · Sliding Case</div>
+        <div class="card vcover">
+          <div class="vcover-grid"></div>
+          <div class="vcover-topbar"></div>
+
+          <div class="vcover-brand">
+            <div class="vcover-logo">GV</div>
+            <div class="vcover-school-name">Green Valley School</div>
+            <div class="vcover-school-sub">Student Safety Program</div>
+          </div>
+
+          <div class="vcover-sep"></div>
+
+          <div class="vcover-heading">
+            <div class="vcover-sos-tag">SOS</div>
+            <div class="vcover-title">Emergency Card</div>
+            <div class="vcover-sub">
+              Slide open and scan QR if this child needs help
+            </div>
+          </div>
+
+          <div class="vcover-slide">
+            <div class="vcover-arrow">↑</div>
+            <div class="vcover-slide-text">Slide up to reveal QR</div>
+          </div>
+
+          <div class="vcover-helplines">
+            <div class="vcover-helpline">
+              <div class="vch-left">
+                <div class="vch-icon">🚔</div>
+                <div class="vch-label">Police</div>
+              </div>
+              <div class="vch-num">100</div>
+            </div>
+            <div class="vcover-helpline">
+              <div class="vch-left">
+                <div class="vch-icon">🚑</div>
+                <div class="vch-label">Ambulance</div>
+              </div>
+              <div class="vch-num">108</div>
+            </div>
+            <div class="vcover-helpline">
+              <div class="vch-left">
+                <div class="vch-icon">👧</div>
+                <div class="vch-label">Child Helpline</div>
+              </div>
+              <div class="vch-num">1098</div>
+            </div>
+          </div>
+
+          <div class="vcover-footer">
+            <div class="vcover-deter">
+              <strong>⚠ Scanning is logged.</strong> IP, device &amp; location
+              recorded. Misuse reported to school.
+            </div>
+            <div class="vcover-brand-row">
+              <div class="vcover-brand-name">RESQID</div>
+              <div class="vcover-brand-dot"></div>
+              <div class="vcover-brand-url">resqid.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLANK BACK -->
+      <div class="card-col">
+        <div class="card-col-label">Back · Blank (not activated)</div>
+        <div class="card vback-blank">
+          <div class="vbb-texture"></div>
+
+          <div class="vbb-brand">
+            <div class="vbb-brand-name">ResQID</div>
+            <div class="vbb-brand-sub">Emergency Safety Card</div>
+            <div class="vbb-activate">SCAN TO REGISTER →</div>
+          </div>
+
+          <div class="vbb-sep"></div>
+
+          <div class="vbb-howto">
+            <div class="vbb-sec-title">How to use</div>
+            <div class="vbb-step">
+              <div class="vbb-step-num">1</div>
+              <div class="vbb-step-text">
+                Slide cover up to reveal the QR code
+              </div>
+            </div>
+            <div class="vbb-step">
+              <div class="vbb-step-num">2</div>
+              <div class="vbb-step-text">
+                Scan with any phone camera — no app needed
+              </div>
+            </div>
+            <div class="vbb-step">
+              <div class="vbb-step-num">3</div>
+              <div class="vbb-step-text">
+                Tap
+                <b style="color: rgba(255, 255, 255, 0.55)">"Call Guardian"</b>
+                to reach parent instantly
+              </div>
+            </div>
+          </div>
+
+          <div class="vbb-sep2"></div>
+
+          <div class="vbb-aid">
+            <div class="vbb-sec-title">First Aid</div>
+            <div class="vbb-aid-item">
+              <div class="vbb-aid-icon">🫀</div>
+              <div>
+                <div class="vbb-aid-label">CPR</div>
+                <div class="vbb-aid-desc">
+                  30 compressions, 2 breaths. Repeat.
+                </div>
+              </div>
+            </div>
+            <div class="vbb-aid-item">
+              <div class="vbb-aid-icon">🫁</div>
+              <div>
+                <div class="vbb-aid-label">Choking</div>
+                <div class="vbb-aid-desc">
+                  5 back blows + 5 abdominal thrusts.
+                </div>
+              </div>
+            </div>
+            <div class="vbb-aid-item">
+              <div class="vbb-aid-icon">🩸</div>
+              <div>
+                <div class="vbb-aid-label">Bleeding</div>
+                <div class="vbb-aid-desc">
+                  Firm pressure. Don't remove cloth.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="vbb-footer">
+            <div>
+              <div class="vbb-school-name">Green Valley School</div>
+              <div class="vbb-school-phone">+91 11 2345 6789 · New Delhi</div>
+            </div>
+            <div class="vbb-resqid">RESQID</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
