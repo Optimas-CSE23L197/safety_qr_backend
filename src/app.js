@@ -14,6 +14,7 @@ import { sanitize } from "./middlewares/xss.middleware.js";
 import { globalLimiter } from "./middlewares/rateLimit.middleware.js";
 import { ApiError } from "./utils/ApiError.js";
 import routes from "./routes/index.js";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const API_PREFIX = `/api/${process.env.API_VERSION || "v1"}`;
@@ -111,6 +112,8 @@ app.use(
   }),
 );
 
+// ! Cookie parser
+app.use(cookieParser());
 // =============================================================================
 // API ROUTES
 // =============================================================================

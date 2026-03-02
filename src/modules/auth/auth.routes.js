@@ -7,7 +7,6 @@ import {
   emailPasswordValidation,
   sendOtpValidation,
   verifyOtpValidation,
-  refreshTokenValidation,
 } from "./auth.validation.js";
 import {
   loginSuperAdminController,
@@ -86,12 +85,7 @@ router.post(
 // Old refresh token is deleted and a new one is issued (rotation).
 // =============================================================================
 
-router.post(
-  "/refresh",
-  authRateLimiter,
-  validate({ body: refreshTokenValidation }),
-  refreshTokenController,
-);
+router.post("/refresh", authRateLimiter, refreshTokenController);
 
 // =============================================================================
 // Logout
