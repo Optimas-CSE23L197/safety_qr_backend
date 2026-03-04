@@ -227,20 +227,15 @@ export const sendOtp = async ({ phone, ipAddress }) => {
   }
 
   const otp = generateOtp();
+  console.log("otp -> ", otp);
   const otpHash = hashOtp(otp);
 
   // Store hash not raw OTP — Redis breach won't expose OTPs
   await redis.set(otpHashKey(phone), otpHash, "EX", OTP_TTL_SECONDS);
   await redis.del(otpAttemptsKey(phone)); // reset attempt counter
   await redis.set(otpRateKey(phone), "1", "EX", 60); // 60s cooldown
-
-  if (process.env.NODE_ENV === "development") {
-    // Only log OTP in development — never in production
-    logger.info({ phone, otp }, "[Auth] DEV OTP");
-  } else {
-    // TODO: await smsQueue.add("send-otp", { phone, otp });
-    logger.info({ phone }, "[Auth] OTP dispatched");
-  }
+  // TODO: await smsQueue.add("send-otp", { phone, otp });
+  logger.info({ phone }, "[Auth] OTP dispatched");
 
   // Check if parent already exists — lets frontend show correct UI
   const phoneIndex = blindIndex(phone);
