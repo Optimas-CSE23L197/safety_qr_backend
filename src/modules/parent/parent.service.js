@@ -1,9 +1,8 @@
 import crypto from "crypto";
 import * as parentRepo from "./parent.repository.js";
-import { redis } from "../lib/redis.js";
-import { signJwt } from "../utils/jwt.js";
-import { sendOtp } from "../utils/sms.js";
-import { AppError } from "../utils/errors.js";
+import redis from "../../config/redis.js";
+import { generateAccessToken } from "../../utils/jwt.js";
+import { ApiError } from "../../utils/ApiError.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,25 +46,25 @@ export async function initRegistration({ card_number, phone }) {
   // 1. Card lookup
   const card = await parentRepo.findCardByNumber(card_number);
   if (!card)
-    throw new AppError("Card not found. Check the number and try again.", 404);
+    throw new ApiError("Card not found. Check the number and try again.", 404);
   if (!card.token_id)
-    throw new AppError(
+    throw new ApiError(
       "This card has no token assigned. Contact your school.",
       400,
     );
 
   // 2. Token must be UNASSIGNED
   const token = await parentRepo.findTokenById(card.token_id);
-  if (!token) throw new AppError("Token not found.", 404);
+  if (!token) throw new ApiError("Token not found.", 404);
   if (token.status !== "UNASSIGNED") {
-    throw new AppError("This card is already registered.", 409);
+    throw new ApiError("This card is already registered.", 409);
   }
 
   // 3. Find or create parent by phone
   // Phone index is normalized (no spaces, lowercase) for lookup
   const phoneIndex = phone.replace(/\s+/g, "").toLowerCase();
   await parentRepo.upsertParentByPhone({ phone, phone_index: phoneIndex });
- 
+
   // 4. OTP → Redis
   const otp = generateOtp();
   console.log("otp -> ", otp);
@@ -87,12 +86,12 @@ export async function initRegistration({ card_number, phone }) {
   });
 
   // 6. SMS — fire and forget, don't await, don't fail the request if SMS fails
-  sendOtp(phone, otp).catch((err) => {
-    console.error(
-      `[SMS] Failed to send OTP to ${maskPhone(phone)}:`,
-      err.message,
-    );
-  });
+  // sendOtp(phone, otp).catch((err) => {
+  //   console.error(
+  //     `[SMS] Failed to send OTP to ${maskPhone(phone)}:`,
+  //     err.message,
+  //   );
+  // });
 
   return {
     nonce,
@@ -117,35 +116,35 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
   // 1. Validate nonce
   const nonceRecord = await parentRepo.findNonce(nonce);
   if (!nonceRecord)
-    throw new AppError("Invalid or expired registration link.", 400);
+    throw new ApiError("Invalid or expired registration link.", 400);
   if (nonceRecord.used)
-    throw new AppError("This registration link has already been used.", 400);
+    throw new ApiError("This registration link has already been used.", 400);
   if (new Date(nonceRecord.expires_at) < new Date()) {
-    throw new AppError("Registration link expired. Please start again.", 400);
+    throw new ApiError("Registration link expired. Please start again.", 400);
   }
 
   // 2. Get token → get school_id + find parent by token
   const token = await parentRepo.findTokenById(nonceRecord.token_id);
-  if (!token) throw new AppError("Token not found.", 404);
+  if (!token) throw new ApiError("Token not found.", 404);
   if (token.status !== "UNASSIGNED") {
-    throw new AppError("This card has already been registered.", 409);
+    throw new ApiError("This card has already been registered.", 409);
   }
 
   // 3. Validate OTP
   const phoneIndex = token.parent_phone_index; // attached by findTokenById join
   if (!phoneIndex)
-    throw new AppError("Parent phone not found for this token.", 400);
+    throw new ApiError("Parent phone not found for this token.", 400);
 
   const otpKey = otpRedisKey(phoneIndex);
   const otpRaw = await redis.get(otpKey);
   if (!otpRaw)
-    throw new AppError("OTP expired. Please request a new one.", 400);
+    throw new ApiError("OTP expired. Please request a new one.", 400);
 
   const otpData = JSON.parse(otpRaw);
 
   if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await redis.del(otpKey);
-    throw new AppError(
+    throw new ApiError(
       "Too many incorrect attempts. Please request a new OTP.",
       429,
     );
@@ -159,7 +158,7 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
       "KEEPTTL", // keep original TTL
     );
     const remaining = OTP_MAX_ATTEMPTS - (otpData.attempts + 1);
-    throw new AppError(
+    throw new ApiError(
       `Incorrect OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
       400,
     );
@@ -182,7 +181,7 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
   });
 
   // 5. Sign JWT
-  const jwt = signJwt({
+  const jwt = generateAccessToken({
     sub: session.parent_user_id,
     session_id: session.id,
     type: "parent",
@@ -214,7 +213,7 @@ export async function updateProfile({
 }) {
   // Verify parent-student ownership
   const link = await parentRepo.findParentStudent({ parentId, studentId });
-  if (!link) throw new AppError("You do not have access to this student.", 403);
+  if (!link) throw new ApiError("You do not have access to this student.", 403);
 
   await parentRepo.saveStudentProfile({
     studentId,

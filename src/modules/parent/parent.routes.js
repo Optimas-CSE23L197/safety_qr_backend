@@ -11,6 +11,7 @@ import {
   updateStudentProfile,
 } from "./parent.controller.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
+import { authorize } from "../../middlewares/rbac.middleware.js";
 
 const router = Router();
 

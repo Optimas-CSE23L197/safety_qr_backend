@@ -1,5 +1,5 @@
 import * as parentService from "./parent.service.js";
-import { AppError } from "../utils/errors.js";
+import { ApiError } from "../../utils/ApiError.js";
 
 // ─── POST /auth/register/init ─────────────────────────────────────────────────
 
