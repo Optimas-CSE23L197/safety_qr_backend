@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import { env } from "./env";
+import { env } from "./env.js";
 
 const redis = new Redis(env.redis_url ?? "redis://localhost:6379", {
   maxRetriesPerRequest: 3,
