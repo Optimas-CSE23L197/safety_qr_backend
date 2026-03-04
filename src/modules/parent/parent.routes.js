@@ -26,11 +26,7 @@ const router = Router();
  * - Sends OTP via SMS (async, non-blocking)
  * - Returns: { nonce, masked_phone }
  */
-router.post(
-  "/auth/register/init",
-  validate(validateRegisterInit),
-  registerInit,
-);
+router.post("/register/init", validate(validateRegisterInit), registerInit);
 
 /**
  * POST /api/parent/auth/register/verify
@@ -47,7 +43,7 @@ router.post(
  * - Returns: { jwt, student_id, isProfileComplete: false }
  */
 router.post(
-  "/auth/register/verify",
+  "/register/verify",
   validate(validateRegisterVerify),
   registerVerify,
 );

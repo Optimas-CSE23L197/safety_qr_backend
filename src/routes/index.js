@@ -5,6 +5,7 @@ const route = Router();
 import authRoute from "../modules/auth/auth.routes.js";
 import superAdminRoute from "../modules/super_admin/superAdmin.routes.js";
 import tokenRoute from "../modules/token/token.routes.js";
+import parentRoute from "../modules/parent/parent.routes.js";
 
 // Health check (load balancer friendly)
 route.get("/health", (req, res) => {
@@ -19,5 +20,6 @@ route.get("/health", (req, res) => {
 route.use("/auth", authRoute);
 route.use("/super-admin", superAdminRoute);
 route.use("/token", tokenRoute);
+route.use("/parent", parentRoute);
 
 export default route;

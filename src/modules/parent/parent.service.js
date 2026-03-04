@@ -65,7 +65,7 @@ export async function initRegistration({ card_number, phone }) {
   // Phone index is normalized (no spaces, lowercase) for lookup
   const phoneIndex = phone.replace(/\s+/g, "").toLowerCase();
   await parentRepo.upsertParentByPhone({ phone, phone_index: phoneIndex });
-
+ 
   // 4. OTP → Redis
   const otp = generateOtp();
   console.log("otp -> ", otp);
