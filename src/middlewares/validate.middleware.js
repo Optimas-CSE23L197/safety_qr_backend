@@ -8,11 +8,16 @@ export const validate = (schemas = {}) => {
       }
 
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params);
+        const parsed = schemas.params.parse(req.params);
+        Object.assign(req.params, parsed);
       }
 
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        // req.query is getter-only and backed by URLSearchParams in some
+        // Express/router versions — mutating it is unreliable.
+        // Store parsed + coerced query on req.parsedQuery instead.
+        // Controllers must read from req.parsedQuery (not req.query).
+        req.parsedQuery = schemas.query.parse(req.query);
       }
 
       next();

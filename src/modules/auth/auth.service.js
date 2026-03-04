@@ -127,12 +127,13 @@ export const loginSuperAdmin = async ({
   });
 
   return {
-    accessToken,
-    refreshToken,
+    access_token: accessToken,
+    refresh_token: refreshToken,
     user: {
       id: admin.id,
       name: admin.name,
       email: admin.email,
+      role: "SUPER_ADMIN",
     },
   };
 };
@@ -196,14 +197,15 @@ export const loginSchoolUser = async ({
     );
 
   return {
-    accessToken,
-    refreshToken,
+    access_token: accessToken,
+    refresh_token: refreshToken,
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
-      schoolId: user.school_id,
+      school_id: user.school_id,
+      school_name: null,
     },
   };
 };
@@ -444,9 +446,10 @@ export const refreshTokens = async ({
     expiresAt: refreshExpiresAt(),
   });
 
+  // refreshTokens return
   return {
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
+    access_token: newAccessToken,
+    refresh_token: newRefreshToken,
   };
 };
 

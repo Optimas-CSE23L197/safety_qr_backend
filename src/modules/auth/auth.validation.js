@@ -49,12 +49,3 @@ export const verifyOtpValidation = z.object({
     .length(6, "OTP must be exactly 6 digits")
     .regex(/^\d+$/, "OTP must contain only digits"),
 });
-
-// ---------------------------------------------------------------------------
-// Refresh Token — shared by all three actors
-// ---------------------------------------------------------------------------
-export const refreshTokenValidation = z.object({
-  refresh_token: z
-    .string({ required_error: "Refresh token is required" })
-    .min(1),
-});

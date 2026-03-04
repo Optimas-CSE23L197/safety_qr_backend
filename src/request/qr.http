@@ -1,8 +1,0 @@
-### ! Generate a single token
-POST http://localhost:3000/api/v1/qr/blank/single
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMGI1ZGMzZS1iMGZhLTQxYzQtYTE1My04NGI5YTdkYTJjYTEiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjAzMTI1NywiZXhwIjoxNzcyMTE3NjU3fQ.iE7JQhfid3Zoi-b1GoEAJMP3r6xOTB_b_dGBKQeFR50
-
-{
-  "notes": "Test blank token"
-}

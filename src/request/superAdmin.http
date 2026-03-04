@@ -1,0 +1,52 @@
+###! Register Super Admin
+POST http://localhost:3000/api/v1/super-admin
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjE5ODM2OCwiZXhwIjoxNzcyMjg0NzY4fQ.s3APyWq8lu-wStmpvorEX4SWtiNY2KgCb0NhNqgl8Yo
+
+{
+    "name": "Mia Khalifa",
+    "email": "miakhalifa6969@gmail.com",
+    "password": "Mia@6969#"
+}
+
+###! Update Super Admin
+PATCH http://localhost:3000/api/v1/super-admin/67edb461-30cd-4a97-8aca-764c55375b3d
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjE5ODM2OCwiZXhwIjoxNzcyMjg0NzY4fQ.s3APyWq8lu-wStmpvorEX4SWtiNY2KgCb0NhNqgl8Yo
+
+{
+  "is_active": true
+}
+
+###! Change password
+PATCH http://localhost:3000/api/v1/super-admin/67edb461-30cd-4a97-8aca-764c55375b3d/password
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjE5ODM2OCwiZXhwIjoxNzcyMjg0NzY4fQ.s3APyWq8lu-wStmpvorEX4SWtiNY2KgCb0NhNqgl8Yo
+
+{
+  "current_password": "Mia@6969#",
+  "new_password": "NewPass@5678",
+  "confirm_password": "NewPass@5678"
+}
+
+###! Delete super admin
+DELETE http://localhost:3000/api/v1/super-admin/67edb461-30cd-4a97-8aca-764c55375b3d
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjE5ODM2OCwiZXhwIjoxNzcyMjg0NzY4fQ.s3APyWq8lu-wStmpvorEX4SWtiNY2KgCb0NhNqgl8Yo
+
+
+###! GET all super admin
+GET http://localhost:3000/api/v1/super-admin?is_active=true
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjE5ODM2OCwiZXhwIjoxNzcyMjg0NzY4fQ.s3APyWq8lu-wStmpvorEX4SWtiNY2KgCb0NhNqgl8Yo
+
+###! GET super admin by id
+GET http://localhost:3000/api/v1/super-admin/67edb461-30cd-4a97-8aca-764c55375b3d
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjE5ODM2OCwiZXhwIjoxNzcyMjg0NzY4fQ.s3APyWq8lu-wStmpvorEX4SWtiNY2KgCb0NhNqgl8Yo
+
+{
+  "current_password": "Mia@6969#",
+  "new_password": "NewPass@5678",
+  "confirm_password": "NewPass@5678"
+}
