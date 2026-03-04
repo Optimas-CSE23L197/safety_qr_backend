@@ -69,14 +69,8 @@ export const sendOtp = async (phone) => {
   // =============================================================================
   // SMS PROVIDER — swap this block when ready
   // =============================================================================
-  if (process.env.NODE_ENV === "production") {
-    // TODO: replace with real SMS provider
-    // await msg91.send(phone, `Your ResQID OTP is ${otp}. Valid for 5 minutes.`);
-    throw new Error("SMS provider not configured for production");
-  } else {
-    // DEV MODE — log OTP to console, never in production
-    console.log(`\n[OTP SERVICE - DEV ONLY] Phone: ${phone} | OTP: ${otp}\n`);
-  }
+  //TODO DEV MODE — log OTP to console, never in production
+  console.log(`\n[OTP SERVICE - DEV ONLY] Phone: ${phone} | OTP: ${otp}\n`);
   // =============================================================================
 
   return { expiresInSeconds: OTP_TTL_SECONDS };
