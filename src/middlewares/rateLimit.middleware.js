@@ -15,6 +15,7 @@ export const globalLimiter = rateLimit({
   handler: createHandler(),
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.endsWith("/health"),
 });
 
 // =============================================================================
