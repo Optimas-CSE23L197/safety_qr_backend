@@ -20,7 +20,7 @@ const missingVariable = requireEnv.filter((key) => !process.env[key]);
 
 if (missingVariable.length > 0) {
   console.error("Missing required environment variables:");
-  missing.forEach((key) => console.error(` - ${key}`));
+  missingVariable.forEach((key) => console.error(` - ${key}`));
   process.exit(1);
 }
 

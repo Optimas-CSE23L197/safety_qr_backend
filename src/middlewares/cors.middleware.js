@@ -7,12 +7,27 @@ const ALLOWED_ORIGINS = [
   // Development
   "http://localhost:5173",
   "http://localhost:3000",
+  // React Native / Expo dev (physical device & emulator)
+  "http://localhost:8081",
+  "http://localhost:19000",
+  "http://localhost:19006",
 ];
 
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (Postman, curl, mobile apps)
+    // Allow requests with no origin (Postman, curl)
     if (!origin) return callback(null, true);
+
+    // Allow all localhost/192.168.x.x origins in development
+    if (
+      process.env.NODE_ENV !== "production" &&
+      (origin.startsWith("http://localhost") ||
+        origin.startsWith("http://192.168.") ||
+        origin.startsWith("http://10.") ||
+        origin.startsWith("exp://")) // Expo Go
+    ) {
+      return callback(null, true);
+    }
 
     if (ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);

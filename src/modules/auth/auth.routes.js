@@ -63,14 +63,14 @@ router.post(
 // =============================================================================
 
 router.post(
-  "/parent/send-otp",
+  "/send-otp",
   authRateLimiter,
   validate({ body: sendOtpValidation }),
   sendOtpController,
 );
 
 router.post(
-  "/parent/verify-otp",
+  "/verify-otp",
   authRateLimiter,
   validate({ body: verifyOtpValidation }),
   verifyOtpController,
