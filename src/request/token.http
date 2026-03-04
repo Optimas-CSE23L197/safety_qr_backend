@@ -1,10 +1,10 @@
 ### ! Generate a single token
 POST http://localhost:3000/api/v1/token/blank/single
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwZmM3OTQ2Ni05ZmMwLTQ4MTQtOTMwOS05OTM1M2RkODI3Y2QiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjEzNDk3MiwiZXhwIjoxNzcyMjIxMzcyfQ.OwpdoyRuNS669gdfNywG6DwLE2hLk2jrTYdxf6P8Bfw
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NzE5NDE4MC1lMTkyLTQxMDItOGQwZS05NmE3MzY3N2EyMjgiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjY0NzU4NCwiZXhwIjoxNzcyNzMzOTg0fQ.nqr_va4OzcqUadDcGtME2dL4hp0cEcModMvUGi3-n64
 
 {
-  "schoolId": "9d02ff39-9c3b-4e4d-bb54-31fdfbc9561d",
+  "schoolId": "bf130206-6d65-473c-ab4b-c717178dd519",
   "notes": "Single token for Ram"
 }
 

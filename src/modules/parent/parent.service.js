@@ -68,6 +68,7 @@ export async function initRegistration({ card_number, phone }) {
 
   // 4. OTP → Redis
   const otp = generateOtp();
+  console.log("otp -> ", otp);
   const otpKey = otpRedisKey(phoneIndex);
   await redis.set(
     otpKey,
