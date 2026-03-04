@@ -1,11 +1,11 @@
 import Redis from "ioredis";
 import { env } from "./env.js";
 
-const redis = new Redis(env.redis_url ?? "redis://localhost:6379", {
-  maxRetriesPerRequest: 3,
+const redis = new Redis(env.redis_url, {
+  maxRetriesPerRequest: null,
   enableReadyCheck: true,
-  retryStrategy: (times) => Math.min(times * 100, 3000),
-  lazyConnect: false,
+  retryStrategy: (times) => Math.min(times * 200, 5000),
+  tls: {}, // important for Upstash
 });
 
 redis.on("connect", () => console.log("[Redis] Connected"));
