@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { validate } from "../middleware/validate.js";
+import { validate } from "../../middlewares/validate.middleware.js";
 import {
   validateRegisterInit,
   validateRegisterVerify,
