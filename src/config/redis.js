@@ -1,6 +1,7 @@
 import Redis from "ioredis";
+import { env } from "./env";
 
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+const redis = new Redis(env.redis_url ?? "redis://localhost:6379", {
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
   retryStrategy: (times) => Math.min(times * 100, 3000),
