@@ -25,6 +25,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
+    "@upstash/redis": "^1.36.3",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.70.1",
     "compression": "^1.8.1",

@@ -13,7 +13,8 @@ const requireEnv = [
   "TOKEN_BYTES",
   "CHUNK_SIZE",
   "LOG_LEVEL",
-  "REDIS_URL",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
 ];
 
 // ! check missing variable
@@ -38,5 +39,6 @@ export const env = {
   token_bytes: process.env.TOKEN_BYTES,
   chunk_size: process.env.CHUNK_SIZE,
   log_level: process.env.LOG_LEVEL,
-  redis_url: process.env.REDIS_URL,
+  upstash_redis_rest_url: process.env.UPSTASH_REDIS_REST_URL,
+  upstash_redis_rest_token: process.env.UPSTASH_REDIS_REST_TOKEN,
 };
