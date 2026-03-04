@@ -1,9 +1,17 @@
-import { Redis } from "@upstash/redis";
+import Redis from "ioredis";
 import { env } from "./env.js";
 
-const redis = new Redis({
-  url: env.upstash_redis_rest_url,
-  token: env.upstash_redis_rest_token,
+const redis = new Redis(env.redis_url, {
+  maxRetriesPerRequest: 3,
+  enableReadyCheck: true,
+  retryStrategy: (times) => Math.min(times * 100, 3000),
+  tls: {},
+  lazyConnect: false,
 });
+
+redis.on("connect", () => console.log("[Redis] Connected"));
+redis.on("ready", () => console.log("[Redis] Ready"));
+redis.on("error", (err) => console.error("[Redis] Error:", err.message));
+redis.on("close", () => console.warn("[Redis] Connection closed"));
 
 export default redis;

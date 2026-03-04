@@ -8,7 +8,7 @@ import redis from "../config/redis.js";
 // =============================================================================
 export const makeStore = (prefix) =>
   new RedisStore({
-    sendCommand: (...args) => redis.call(...args),
+    sendCommand: (command, ...args) => redis[command.toLowerCase()](...args),
     prefix: `rl:${prefix}:`,
   });
 
