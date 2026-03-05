@@ -6,26 +6,23 @@ import { HTTP_STATUS, ERROR_MESSAGES } from "../../config/constants.js";
 import { encrypt, blindIndex } from "../../utils/encryption.js";
 import { generateOtp, hashOtp } from "../../services/otp.service.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
+import { jwtDecode } from "jwt-decode";
 import { auditLog } from "../../utils/auditLogger.js";
 import redis from "../../config/redis.js";
 import { logger } from "../../config/logger.js";
 
 // =============================================================================
-// Constants
+// FIX: verifyOtp now returns expiresAt so mobile can store token metadata
+//      without having to decode the JWT itself.
 // =============================================================================
 
-const OTP_TTL_SECONDS = 5 * 60; // OTP valid for 5 minutes
-const OTP_MAX_ATTEMPTS = 5; // lockout after 5 wrong guesses
+const OTP_TTL_SECONDS = 5 * 60;
+const OTP_MAX_ATTEMPTS = 5;
 const REFRESH_TTL_DAYS = 7;
 
-// Redis key factories
 const otpHashKey = (phone) => `otp:hash:${phone}`;
 const otpAttemptsKey = (phone) => `otp:attempts:${phone}`;
 const otpRateKey = (phone) => `otp:rate:${phone}`;
-
-// =============================================================================
-// Helpers
-// =============================================================================
 
 const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
@@ -36,9 +33,6 @@ const refreshExpiresAt = () => {
   return d;
 };
 
-// Shared login logic for email+password actors
-// Always runs bcrypt even when user not found — prevents timing attacks
-// that reveal whether an email exists in the system
 const verifyPassword = async (plaintext, hash) => {
   const dummy =
     "$2b$10$dummyhashfortimingattackprevention000000000000000000000";
@@ -47,14 +41,6 @@ const verifyPassword = async (plaintext, hash) => {
 
 // =============================================================================
 // SuperAdmin Login
-//
-// Flow:
-//   1. Find SuperAdmin by email
-//   2. Verify password (always runs bcrypt)
-//   3. Check is_active
-//   4. Generate tokens + store session
-//   5. Update last_login_at (fire and forget)
-//   6. Always write audit log — every super admin login is recorded
 // =============================================================================
 
 export const loginSuperAdmin = async ({
@@ -72,16 +58,11 @@ export const loginSuperAdmin = async ({
       ERROR_MESSAGES.INVALID_CREDENTIALS,
     );
   }
-
   if (!admin.is_active) {
     throw new ApiError(HTTP_STATUS.FORBIDDEN, ERROR_MESSAGES.ACCOUNT_DISABLED);
   }
 
-  const payload = {
-    sub: admin.id,
-    actorType: "super_admin",
-  };
-
+  const payload = { sub: admin.id, actorType: "super_admin" };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
 
@@ -93,7 +74,6 @@ export const loginSuperAdmin = async ({
     expiresAt: refreshExpiresAt(),
   });
 
-  // Fire and forget — never block login response
   repo
     .updateSuperAdminLastLogin(admin.id)
     .catch((err) =>
@@ -102,18 +82,6 @@ export const loginSuperAdmin = async ({
         "[Auth] Failed to update super admin last_login_at",
       ),
     );
-
-  // Always audit super admin logins
-  logger.info(
-    {
-      event: "SUPER_ADMIN_LOGIN",
-      adminId: admin.id,
-      email: admin.email,
-      ipAddress: ipAddress ?? "unknown",
-      timestamp: new Date().toISOString(),
-    },
-    "Super admin login",
-  );
 
   auditLog({
     schoolId: null,
@@ -140,13 +108,6 @@ export const loginSuperAdmin = async ({
 
 // =============================================================================
 // SchoolUser Login
-//
-// Flow:
-//   1. Find SchoolUser by email
-//   2. Verify password
-//   3. Check is_active
-//   4. Generate tokens + store session
-//   5. Update last_login_at (fire and forget)
 // =============================================================================
 
 export const loginSchoolUser = async ({
@@ -164,15 +125,14 @@ export const loginSchoolUser = async ({
       ERROR_MESSAGES.INVALID_CREDENTIALS,
     );
   }
-
   if (!user.is_active) {
     throw new ApiError(HTTP_STATUS.FORBIDDEN, ERROR_MESSAGES.ACCOUNT_DISABLED);
   }
 
   const payload = {
     sub: user.id,
-    role: user.role, // SchoolRole: ADMIN | STAFF | VIEWER
-    schoolId: user.school_id, // required by scopeToTenant middleware
+    role: user.role,
+    schoolId: user.school_id,
     actorType: "school",
   };
 
@@ -205,39 +165,29 @@ export const loginSchoolUser = async ({
       email: user.email,
       role: user.role,
       school_id: user.school_id,
-      school_name: null,
     },
   };
 };
 
 // =============================================================================
 // Parent — Step 1: Send OTP
-//
-// Flow:
-//   1. Rate limit — max 1 OTP request per minute per phone
-//   2. Generate OTP, store hash in Redis with TTL
-//   3. Send SMS (dev: log to console, prod: queue to SMS worker)
 // =============================================================================
 
 export const sendOtp = async ({ phone, ipAddress }) => {
-  // Rate limit — 1 OTP per minute per phone number
   const rateLocked = await redis.get(otpRateKey(phone));
   if (rateLocked) {
     throw new ApiError(429, "Please wait before requesting another OTP");
   }
 
   const otp = generateOtp();
-  console.log("otp -> ", otp);
+  console.log("[DEV] otp ->", otp);
   const otpHash = hashOtp(otp);
 
-  // Store hash not raw OTP — Redis breach won't expose OTPs
   await redis.set(otpHashKey(phone), otpHash, "EX", OTP_TTL_SECONDS);
-  await redis.del(otpAttemptsKey(phone)); // reset attempt counter
-  await redis.set(otpRateKey(phone), "1", "EX", 60); // 60s cooldown
+  await redis.del(otpAttemptsKey(phone));
+  await redis.set(otpRateKey(phone), "1", "EX", 60);
   // TODO: await smsQueue.add("send-otp", { phone, otp });
-  logger.info({ phone }, "[Auth] OTP dispatched");
 
-  // Check if parent already exists — lets frontend show correct UI
   const phoneIndex = blindIndex(phone);
   const existingParent = await repo.findParentByPhoneIndex(phoneIndex);
 
@@ -250,16 +200,11 @@ export const sendOtp = async ({ phone, ipAddress }) => {
 // =============================================================================
 // Parent — Step 2: Verify OTP → Login or Register
 //
-// Flow:
-//   1. Check attempt count (lockout after OTP_MAX_ATTEMPTS wrong guesses)
-//   2. Get stored OTP hash from Redis
-//   3. Constant-time comparison
-//   4. Find or create ParentUser
-//   5. Generate tokens + store session
+// FIX: Returns expiresAt (Unix seconds) so mobile storage.setTokens()
+//      can store token metadata without re-decoding the JWT.
 // =============================================================================
 
 export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
-  // Step 1: Brute force protection
   const attempts = parseInt(
     (await redis.get(otpAttemptsKey(phone))) ?? "0",
     10,
@@ -268,7 +213,6 @@ export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
     throw new ApiError(429, "Too many failed attempts. Request a new OTP.");
   }
 
-  // Step 2: Get stored hash
   const storedHash = await redis.get(otpHashKey(phone));
   if (!storedHash) {
     throw new ApiError(
@@ -277,7 +221,6 @@ export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
     );
   }
 
-  // Step 3: Constant-time comparison — prevents timing attacks on OTP
   const submittedHash = hashOtp(otp);
   const isValid = crypto.timingSafeEqual(
     Buffer.from(storedHash),
@@ -290,19 +233,17 @@ export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
     throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Invalid OTP");
   }
 
-  // Step 4: OTP valid — clean up Redis immediately
   await Promise.all([
     redis.del(otpHashKey(phone)),
     redis.del(otpAttemptsKey(phone)),
     redis.del(otpRateKey(phone)),
   ]);
 
-  // Find or create parent
   const phoneIndex = blindIndex(phone);
   let parent = await repo.findParentByPhoneIndex(phoneIndex);
+  const isNewUser = !parent;
 
   if (!parent) {
-    // First time — create account with encrypted phone
     parent = await repo.createParentUser({
       encryptedPhone: encrypt(phone),
       phoneIndex,
@@ -314,15 +255,17 @@ export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
     );
   }
 
-  // Step 5: Generate tokens
-  const payload = {
-    sub: parent.id,
-    role: "PARENT",
-    actorType: "parent",
-  };
-
+  const payload = { sub: parent.id, role: "PARENT", actorType: "parent" };
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
+
+  // FIX: Decode expiresAt from access token so mobile can store it
+  let expiresAt;
+  try {
+    expiresAt = jwtDecode(accessToken).exp;
+  } catch {
+    expiresAt = Math.floor(Date.now() / 1000) + 15 * 60; // fallback: 15min
+  }
 
   await repo.createSession({
     parentUserId: parent.id,
@@ -341,24 +284,14 @@ export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
   return {
     accessToken,
     refreshToken,
+    expiresAt, // FIX: included so mobile storage.setTokens works correctly
     parent: { id: parent.id },
-    isNewUser: !parent.is_phone_verified,
+    isNewUser,
   };
 };
 
 // =============================================================================
 // Refresh Token — shared by all three actors
-//
-// Flow:
-//   1. Hash incoming refresh token → look up session
-//   2. Check session not expired
-//   3. Delete old session (rotation — one time use)
-//   4. Load user and rebuild payload
-//   5. Issue new access + refresh tokens + new session
-//
-// Token rotation means: if a refresh token is stolen and used,
-// the real user's next refresh will fail (session already deleted)
-// which alerts them to re-login.
 // =============================================================================
 
 export const refreshTokens = async ({
@@ -384,14 +317,12 @@ export const refreshTokens = async ({
     );
   }
 
-  // Delete old session before issuing new one (rotation)
   await repo.deleteSession(session.id);
 
   let payload;
   let sessionData = {};
 
   if (session.admin_user_id) {
-    // SuperAdmin refresh
     const admin = await repo.findSuperAdminById(session.admin_user_id);
     if (!admin?.is_active) {
       throw new ApiError(
@@ -402,7 +333,6 @@ export const refreshTokens = async ({
     payload = { sub: session.admin_user_id, actorType: "super_admin" };
     sessionData = { superAdminId: session.admin_user_id };
   } else if (session.school_user_id) {
-    // SchoolUser refresh
     const user = await repo.findSchoolUserById(session.school_user_id);
     if (!user || !user.is_active) {
       throw new ApiError(
@@ -418,7 +348,6 @@ export const refreshTokens = async ({
     };
     sessionData = { schoolUserId: user.id };
   } else if (session.parent_user_id) {
-    // ParentUser refresh
     const parent = await repo.findParentById(session.parent_user_id);
     if (!parent || parent.status !== "ACTIVE") {
       throw new ApiError(
@@ -441,7 +370,6 @@ export const refreshTokens = async ({
     expiresAt: refreshExpiresAt(),
   });
 
-  // refreshTokens return
   return {
     access_token: newAccessToken,
     refresh_token: newRefreshToken,
@@ -449,17 +377,12 @@ export const refreshTokens = async ({
 };
 
 // =============================================================================
-// Logout — shared by all three actors
-//
-// Blacklists the access token + deletes the session.
-// requireAuth already verified the token — service receives only what it needs.
+// Logout
 // =============================================================================
 
 export const logoutUser = async ({ token, exp, refreshToken }) => {
-  // Blacklist access token so it can't be reused until it naturally expires
   await repo.addToBlacklist(hashToken(token), new Date(exp * 1000));
 
-  // Delete session to invalidate refresh token too
   if (refreshToken) {
     const session = await repo.findSessionByRefreshHash(
       hashToken(refreshToken),

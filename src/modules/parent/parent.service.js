@@ -1,12 +1,14 @@
 import crypto from "crypto";
 import * as parentRepo from "./parent.repository.js";
 import redis from "../../config/redis.js";
-import { generateAccessToken } from "../../utils/jwt.js";
+import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
+import { blindIndex } from "../../utils/encryption.js";
+import { jwtDecode } from "jwt-decode";
 import { ApiError } from "../../utils/ApiError.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const OTP_TTL_SECONDS = 5 * 60; // 5 minutes
+const OTP_TTL_SECONDS = 5 * 60;
 const OTP_MAX_ATTEMPTS = 3;
 const NONCE_TTL_MINUTES = 15;
 const SESSION_TTL_DAYS = 30;
@@ -26,11 +28,16 @@ function maskPhone(phone) {
   return phone.slice(0, -6).replace(/\d/g, "*") + phone.slice(-4);
 }
 
-function otpRedisKey(phone_index) {
-  return `otp:${phone_index}`;
+function otpRedisKey(phoneIndex) {
+  // Separate namespace from login OTPs to avoid collisions
+  return `otp:reg:${phoneIndex}`;
 }
 
 // ─── Init Registration ────────────────────────────────────────────────────────
+//
+// FIX (Ghost Parents): Removed upsertParentByPhone() from here.
+// ParentUser is now created ONLY inside completeRegistration() after OTP verify.
+// Previously every "Send OTP" tap created a ghost ParentUser row.
 
 export async function initRegistration({ card_number, phone }) {
   // 1. Card lookup
@@ -46,54 +53,51 @@ export async function initRegistration({ card_number, phone }) {
   // 2. Token must be UNASSIGNED
   const token = await parentRepo.findTokenById(card.token_id);
   if (!token) throw new ApiError(404, "Token not found.");
-  if (token.status !== "UNASSIGNED") {
+  if (token.status !== "UNASSIGNED")
     throw new ApiError(409, "This card is already registered.");
-  }
 
-  // 3. Normalise phone → phone_index
-  const phoneIndex = phone.replace(/\s+/g, "").toLowerCase();
+  // 3. Compute phone_index using blind index (consistent with auth.service.js)
+  const phoneIndex = blindIndex(phone);
 
-  // 4. Find or create parent by phone
-  await parentRepo.upsertParentByPhone({ phone, phone_index: phoneIndex });
-
-  // 5. OTP → Redis
+  // 4. OTP → Redis
   const otp = generateOtp();
-  console.log("[DEV] otp ->", otp); // remove before production
-  const otpKey = otpRedisKey(phoneIndex);
+  console.log("[DEV] registration otp ->", otp);
   await redis.set(
-    otpKey,
+    otpRedisKey(phoneIndex),
     JSON.stringify({ code: otp, attempts: 0 }),
     "EX",
     OTP_TTL_SECONDS,
   );
 
-  // 6. Nonce → Postgres
-  //    FIX: store phone_index on the nonce so verifyRegistration can retrieve
-  //    it without relying on the token→student→parents join (which doesn't
-  //    exist yet because the token is still UNASSIGNED at this point).
+  // 5. Nonce → Postgres — store phone_index here so verifyRegistration
+  //    can find it without the broken token→student→parents join
   const nonce = generateNonce();
-  const expiresAt = new Date(Date.now() + NONCE_TTL_MINUTES * 60 * 1000);
   await parentRepo.createNonce({
     nonce,
     token_id: token.id,
-    expires_at: expiresAt,
-    phone_index: phoneIndex, // ← THE FIX
+    expires_at: new Date(Date.now() + NONCE_TTL_MINUTES * 60 * 1000),
+    phone_index: phoneIndex,
   });
 
-  // 7. SMS — fire and forget
-  // sendOtp(phone, otp).catch((err) => {
-  //   console.error(`[SMS] Failed to send OTP to ${maskPhone(phone)}:`, err.message);
-  // });
-
-  return {
-    nonce,
-    masked_phone: maskPhone(phone),
-  };
+  return { nonce, masked_phone: maskPhone(phone) };
 }
 
 // ─── Verify Registration ──────────────────────────────────────────────────────
+//
+// FIX (White screen): Returns proper { accessToken, refreshToken, expiresAt }
+// pair instead of a single { jwt }. Previously jwt was used as BOTH tokens —
+// every refresh attempt failed → logout → white screen on next app open.
+//
+// FIX (Ghost Parents): ParentUser created HERE after OTP verified,
+// inside the DB transaction. Uses encrypt(phone) for consistency.
 
-export async function verifyRegistration({ nonce, otp, ip, device_info }) {
+export async function verifyRegistration({
+  nonce,
+  otp,
+  ip,
+  device_info,
+  phone,
+}) {
   // 1. Validate nonce
   const nonceRecord = await parentRepo.findNonce(nonce);
   if (!nonceRecord)
@@ -103,9 +107,7 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
   if (new Date(nonceRecord.expires_at) < new Date())
     throw new ApiError(400, "Registration link expired. Please start again.");
 
-  // 2. Get phone_index from nonce (stored during initRegistration)
-  //    FIX: was reading token.parent_phone_index via a join that returned null
-  //    for UNASSIGNED tokens (no student linked yet).
+  // 2. Get phone_index from nonce
   const phoneIndex = nonceRecord.phone_index;
   if (!phoneIndex)
     throw new ApiError(
@@ -113,22 +115,21 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
       "Registration session is invalid. Please start again.",
     );
 
-  // 3. Get token → validate status + get school_id
+  // 3. Validate token status
   const token = await parentRepo.findTokenById(nonceRecord.token_id);
   if (!token) throw new ApiError(404, "Token not found.");
   if (token.status !== "UNASSIGNED")
     throw new ApiError(409, "This card has already been registered.");
 
-  // 4. Validate OTP from Redis
-  const otpKey = otpRedisKey(phoneIndex);
-  const otpRaw = await redis.get(otpKey);
+  // 4. Validate OTP
+  const otpRaw = await redis.get(otpRedisKey(phoneIndex));
   if (!otpRaw)
     throw new ApiError(400, "OTP expired. Please request a new one.");
 
   const otpData = JSON.parse(otpRaw);
 
   if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
-    await redis.del(otpKey);
+    await redis.del(otpRedisKey(phoneIndex));
     throw new ApiError(
       429,
       "Too many incorrect attempts. Please request a new OTP.",
@@ -137,7 +138,7 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
 
   if (otpData.code !== otp) {
     await redis.set(
-      otpKey,
+      otpRedisKey(phoneIndex),
       JSON.stringify({ ...otpData, attempts: otpData.attempts + 1 }),
       "KEEPTTL",
     );
@@ -148,15 +149,15 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
     );
   }
 
-  // OTP matched — delete immediately (single use)
-  await redis.del(otpKey);
+  await redis.del(otpRedisKey(phoneIndex));
 
-  // 5. Single transaction: create everything
-  const { student, session } = await parentRepo.completeRegistration({
+  // 5. Transaction: create ParentUser + student + session atomically
+  const { student, session, parentId } = await parentRepo.completeRegistration({
     nonce,
     token_id: token.id,
     school_id: token.school_id,
     phone_index: phoneIndex,
+    phone, // raw phone passed for encryption inside repo
     ip,
     device_info,
     session_expires_at: new Date(
@@ -164,16 +165,24 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
     ),
   });
 
-  // 6. Sign JWT
-  const jwt = generateAccessToken({
-    sub: session.parent_user_id,
-    session_id: session.id,
-    type: "parent",
-  });
+  // 6. Generate proper token pair
+  const payload = { sub: parentId, role: "PARENT", actorType: "parent" };
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+
+  let expiresAt;
+  try {
+    expiresAt = jwtDecode(accessToken).exp;
+  } catch {
+    expiresAt = Math.floor(Date.now() / 1000) + 15 * 60;
+  }
 
   return {
-    jwt,
+    accessToken,
+    refreshToken,
+    expiresAt,
     student_id: student.id,
+    parent_id: parentId,
     isProfileComplete: false,
   };
 }
@@ -189,7 +198,6 @@ export async function updateProfile({
 }) {
   const link = await parentRepo.findParentStudent({ parentId, studentId });
   if (!link) throw new ApiError(403, "You do not have access to this student.");
-
   await parentRepo.saveStudentProfile({
     studentId,
     student,

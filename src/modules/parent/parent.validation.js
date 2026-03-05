@@ -18,12 +18,15 @@ export const validateRegisterInit = z.object({
 
 export const validateRegisterVerify = z.object({
   nonce: z.string().trim().min(8, "Nonce is required").max(128),
-
   otp: z
     .string()
     .trim()
     .length(6, "OTP must be 6 digits")
     .regex(/^\d{6}$/, "OTP must be 6 digits"),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^+?[1-9]\d{7,14}$/),
 });
 
 // ─── Update Student Profile ───────────────────────────────────────────────────

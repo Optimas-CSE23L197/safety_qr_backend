@@ -4,9 +4,13 @@ import { HTTP_STATUS } from "../../config/constants.js";
 import { extractIp } from "../../utils/extractIp.js";
 
 // =============================================================================
-// Auth Controller — thin layer
-// Extracts only what the service needs from req.
-// Never passes req/res into the service layer.
+// Auth Controller
+// FIX-1: refreshTokenController now reads refreshToken from req.body (not cookie)
+//        Mobile apps cannot use httpOnly cookies. Cookie approach only works for
+//        web browsers. Mobile sends refreshToken in request body.
+// FIX-2: refreshTokenController returns camelCase { accessToken, refreshToken }
+//        to match what tokenRefresh.js and auth.api.js expect.
+// FIX-3: verifyOtpController response normalized to camelCase.
 // =============================================================================
 
 // ---------------------------------------------------------------------------
@@ -20,23 +24,22 @@ export const loginSuperAdminController = asyncHandler(async (req, res) => {
     deviceInfo: req.headers["user-agent"] ?? null,
   });
 
-  // ── Set refresh token as httpOnly cookie ──────────────────────────────
+  // Web clients still get the cookie
   res.cookie("refresh_token", data.refresh_token, {
-    httpOnly: true, // JS can NEVER read this
-    secure: process.env.NODE_ENV === "production", // HTTPS only in prod
-    sameSite: "strict", // no cross-site requests
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
-    path: "/api/auth", // cookie only sent to /api/auth routes
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/api/auth",
   });
 
-  // ── Never send refresh token in body ──────────────────────────────────
   return res.status(HTTP_STATUS.OK).json({
     success: true,
     message: "Login successful",
     data: {
-      access_token: data.access_token,
+      accessToken: data.access_token, // camelCase for mobile clients
+      access_token: data.access_token, // snake_case for web/dashboard clients
       user: data.user,
-      // refresh_token ← intentionally excluded from body
     },
   });
 });
@@ -64,6 +67,7 @@ export const loginSchoolUserController = asyncHandler(async (req, res) => {
     success: true,
     message: "Login successful",
     data: {
+      accessToken: data.access_token,
       access_token: data.access_token,
       user: data.user,
     },
@@ -88,6 +92,7 @@ export const sendOtpController = asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /auth/parent/verify-otp
+// FIX-3: Returns camelCase tokens to match mobile tokenRefresh.js expectations
 // ---------------------------------------------------------------------------
 export const verifyOtpController = asyncHandler(async (req, res) => {
   const data = await authService.verifyOtp({
@@ -102,17 +107,26 @@ export const verifyOtpController = asyncHandler(async (req, res) => {
     message: data.isNewUser
       ? "Account created successfully"
       : "Login successful",
-    data,
+    data: {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt,
+      parent: data.parent,
+      isNewUser: data.isNewUser,
+    },
   });
 });
 
 // ---------------------------------------------------------------------------
 // POST /auth/refresh
-// Shared by all three actors — actor type determined from session
+// FIX-1: Reads refreshToken from req.body (mobile) with cookie fallback (web)
+// FIX-2: Returns camelCase { accessToken, refreshToken } for mobile
 // ---------------------------------------------------------------------------
 export const refreshTokenController = asyncHandler(async (req, res) => {
-  // Cookie arrives automatically — browser sends it with every request to /api/auth
-  const refreshToken = req.cookies?.refresh_token;
+  // FIX-1: Mobile sends refreshToken in body. Web browsers send it as cookie.
+  // Support both — body takes priority.
+  const refreshToken =
+    req.body?.refreshToken ?? req.cookies?.refresh_token ?? null;
 
   if (!refreshToken) {
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
@@ -127,7 +141,7 @@ export const refreshTokenController = asyncHandler(async (req, res) => {
     deviceInfo: req.headers["user-agent"] ?? null,
   });
 
-  // Rotate — set new refresh token cookie
+  // Rotate cookie for web clients
   res.cookie("refresh_token", data.refresh_token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -136,31 +150,34 @@ export const refreshTokenController = asyncHandler(async (req, res) => {
     path: "/api/auth",
   });
 
+  // FIX-2: Return BOTH naming conventions so web and mobile both work
   return res.status(HTTP_STATUS.OK).json({
     success: true,
     message: "Token refreshed",
     data: {
-      access_token: data.access_token,
-      // refresh_token ← never in body
+      accessToken: data.access_token, // camelCase — mobile tokenRefresh.js
+      access_token: data.access_token, // snake_case — web/dashboard
+      refreshToken: data.refresh_token, // mobile needs this for storage rotation
+      refresh_token: data.refresh_token,
     },
   });
 });
 
 // ---------------------------------------------------------------------------
 // POST /auth/logout
-// Shared by all three actors — requireAuth runs before this
 // ---------------------------------------------------------------------------
 export const logoutController = asyncHandler(async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
-  const refreshToken = req.cookies?.refresh_token; // read from cookie
+  // Support both cookie and body for refresh token
+  const refreshToken =
+    req.cookies?.refresh_token ?? req.body?.refreshToken ?? null;
 
   await authService.logoutUser({
     token,
     exp: req.user.exp,
-    refreshToken: refreshToken ?? null,
+    refreshToken,
   });
 
-  // ── Clear the cookie ──────────────────────────────────────────────────
   res.clearCookie("refresh_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
