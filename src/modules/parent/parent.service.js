@@ -14,60 +14,51 @@ const SESSION_TTL_DAYS = 30;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function generateOtp() {
-  // Cryptographically random 6-digit OTP
   return String(crypto.randomInt(100000, 999999));
 }
 
 function generateNonce() {
-  return crypto.randomBytes(32).toString("hex"); // 64 char hex string
+  return crypto.randomBytes(32).toString("hex");
 }
 
 function maskPhone(phone) {
-  // +919876543210 → +91****3210
   if (phone.length < 5) return "****";
   return phone.slice(0, -6).replace(/\d/g, "*") + phone.slice(-4);
 }
 
-function otpRedisKey(phone) {
-  return `otp:${phone}`;
+function otpRedisKey(phone_index) {
+  return `otp:${phone_index}`;
 }
 
 // ─── Init Registration ────────────────────────────────────────────────────────
 
-/**
- * 1. Validate card → token (must be UNASSIGNED)
- * 2. Find or create ParentUser by phone
- * 3. Generate OTP → Redis (5 min TTL)
- * 4. Create RegistrationNonce → Postgres (15 min TTL)
- * 5. Fire-and-forget SMS
- * 6. Return { nonce, masked_phone }
- */
 export async function initRegistration({ card_number, phone }) {
   // 1. Card lookup
   const card = await parentRepo.findCardByNumber(card_number);
   if (!card)
-    throw new ApiError("Card not found. Check the number and try again.", 404);
+    throw new ApiError(404, "Card not found. Check the number and try again.");
   if (!card.token_id)
     throw new ApiError(
-      "This card has no token assigned. Contact your school.",
       400,
+      "This card has no token assigned. Contact your school.",
     );
 
   // 2. Token must be UNASSIGNED
   const token = await parentRepo.findTokenById(card.token_id);
-  if (!token) throw new ApiError("Token not found.", 404);
+  if (!token) throw new ApiError(404, "Token not found.");
   if (token.status !== "UNASSIGNED") {
-    throw new ApiError("This card is already registered.", 409);
+    throw new ApiError(409, "This card is already registered.");
   }
 
-  // 3. Find or create parent by phone
-  // Phone index is normalized (no spaces, lowercase) for lookup
+  // 3. Normalise phone → phone_index
   const phoneIndex = phone.replace(/\s+/g, "").toLowerCase();
+
+  // 4. Find or create parent by phone
   await parentRepo.upsertParentByPhone({ phone, phone_index: phoneIndex });
 
-  // 4. OTP → Redis
+  // 5. OTP → Redis
   const otp = generateOtp();
-  console.log("otp -> ", otp);
+  console.log("[DEV] otp ->", otp); // remove before production
   const otpKey = otpRedisKey(phoneIndex);
   await redis.set(
     otpKey,
@@ -76,21 +67,22 @@ export async function initRegistration({ card_number, phone }) {
     OTP_TTL_SECONDS,
   );
 
-  // 5. Nonce → Postgres
+  // 6. Nonce → Postgres
+  //    FIX: store phone_index on the nonce so verifyRegistration can retrieve
+  //    it without relying on the token→student→parents join (which doesn't
+  //    exist yet because the token is still UNASSIGNED at this point).
   const nonce = generateNonce();
   const expiresAt = new Date(Date.now() + NONCE_TTL_MINUTES * 60 * 1000);
   await parentRepo.createNonce({
     nonce,
     token_id: token.id,
     expires_at: expiresAt,
+    phone_index: phoneIndex, // ← THE FIX
   });
 
-  // 6. SMS — fire and forget, don't await, don't fail the request if SMS fails
+  // 7. SMS — fire and forget
   // sendOtp(phone, otp).catch((err) => {
-  //   console.error(
-  //     `[SMS] Failed to send OTP to ${maskPhone(phone)}:`,
-  //     err.message,
-  //   );
+  //   console.error(`[SMS] Failed to send OTP to ${maskPhone(phone)}:`, err.message);
   // });
 
   return {
@@ -101,73 +93,65 @@ export async function initRegistration({ card_number, phone }) {
 
 // ─── Verify Registration ──────────────────────────────────────────────────────
 
-/**
- * 1. Validate nonce (unused, not expired)
- * 2. Validate OTP from Redis (max 3 attempts, single-use)
- * 3. Single DB transaction:
- *      - nonce → used = true
- *      - Student shell created (school_id from token)
- *      - ParentStudent link created
- *      - Token UNASSIGNED → ISSUED, assigned_at = now
- *      - Session created
- * 4. Return { jwt, student_id, isProfileComplete: false }
- */
 export async function verifyRegistration({ nonce, otp, ip, device_info }) {
   // 1. Validate nonce
   const nonceRecord = await parentRepo.findNonce(nonce);
   if (!nonceRecord)
-    throw new ApiError("Invalid or expired registration link.", 400);
+    throw new ApiError(400, "Invalid or expired registration link.");
   if (nonceRecord.used)
-    throw new ApiError("This registration link has already been used.", 400);
-  if (new Date(nonceRecord.expires_at) < new Date()) {
-    throw new ApiError("Registration link expired. Please start again.", 400);
-  }
+    throw new ApiError(400, "This registration link has already been used.");
+  if (new Date(nonceRecord.expires_at) < new Date())
+    throw new ApiError(400, "Registration link expired. Please start again.");
 
-  // 2. Get token → get school_id + find parent by token
-  const token = await parentRepo.findTokenById(nonceRecord.token_id);
-  if (!token) throw new ApiError("Token not found.", 404);
-  if (token.status !== "UNASSIGNED") {
-    throw new ApiError("This card has already been registered.", 409);
-  }
-
-  // 3. Validate OTP
-  const phoneIndex = token.parent_phone_index; // attached by findTokenById join
+  // 2. Get phone_index from nonce (stored during initRegistration)
+  //    FIX: was reading token.parent_phone_index via a join that returned null
+  //    for UNASSIGNED tokens (no student linked yet).
+  const phoneIndex = nonceRecord.phone_index;
   if (!phoneIndex)
-    throw new ApiError("Parent phone not found for this token.", 400);
+    throw new ApiError(
+      400,
+      "Registration session is invalid. Please start again.",
+    );
 
+  // 3. Get token → validate status + get school_id
+  const token = await parentRepo.findTokenById(nonceRecord.token_id);
+  if (!token) throw new ApiError(404, "Token not found.");
+  if (token.status !== "UNASSIGNED")
+    throw new ApiError(409, "This card has already been registered.");
+
+  // 4. Validate OTP from Redis
   const otpKey = otpRedisKey(phoneIndex);
   const otpRaw = await redis.get(otpKey);
   if (!otpRaw)
-    throw new ApiError("OTP expired. Please request a new one.", 400);
+    throw new ApiError(400, "OTP expired. Please request a new one.");
 
   const otpData = JSON.parse(otpRaw);
 
   if (otpData.attempts >= OTP_MAX_ATTEMPTS) {
     await redis.del(otpKey);
     throw new ApiError(
-      "Too many incorrect attempts. Please request a new OTP.",
       429,
+      "Too many incorrect attempts. Please request a new OTP.",
     );
   }
 
   if (otpData.code !== otp) {
-    // Increment attempts
     await redis.set(
       otpKey,
       JSON.stringify({ ...otpData, attempts: otpData.attempts + 1 }),
-      "KEEPTTL", // keep original TTL
+      "KEEPTTL",
     );
     const remaining = OTP_MAX_ATTEMPTS - (otpData.attempts + 1);
     throw new ApiError(
-      `Incorrect OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
       400,
+      `Incorrect OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
     );
   }
 
   // OTP matched — delete immediately (single use)
   await redis.del(otpKey);
 
-  // 4. Single transaction: create everything
+  // 5. Single transaction: create everything
   const { student, session } = await parentRepo.completeRegistration({
     nonce,
     token_id: token.id,
@@ -180,7 +164,7 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
     ),
   });
 
-  // 5. Sign JWT
+  // 6. Sign JWT
   const jwt = generateAccessToken({
     sub: session.parent_user_id,
     session_id: session.id,
@@ -196,14 +180,6 @@ export async function verifyRegistration({ nonce, otp, ip, device_info }) {
 
 // ─── Update Student Profile ───────────────────────────────────────────────────
 
-/**
- * Called from UpdatesScreen PATCH /student/:studentId
- * - Verifies parent owns this student
- * - Upserts Student fields
- * - Upserts EmergencyProfile
- * - Replaces EmergencyContacts (full replace, re-prioritized)
- * - Moves Token ISSUED → ACTIVE (activated_at = now)
- */
 export async function updateProfile({
   studentId,
   parentId,
@@ -211,9 +187,8 @@ export async function updateProfile({
   emergency,
   contacts,
 }) {
-  // Verify parent-student ownership
   const link = await parentRepo.findParentStudent({ parentId, studentId });
-  if (!link) throw new ApiError("You do not have access to this student.", 403);
+  if (!link) throw new ApiError(403, "You do not have access to this student.");
 
   await parentRepo.saveStudentProfile({
     studentId,

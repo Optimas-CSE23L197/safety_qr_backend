@@ -500,9 +500,10 @@ model RegistrationNonce {
   expires_at DateTime
   used       Boolean  @default(false)
   created_at DateTime @default(now())
+  phone_index String?
   token      Token    @relation(fields: [token_id], references: [id], onDelete: Cascade)
 
-  @@index([nonce])
+  @@index([token_id])
   @@index([expires_at])
 }
 

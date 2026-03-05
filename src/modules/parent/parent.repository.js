@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma.js";
+
 // ─── Card & Token ─────────────────────────────────────────────────────────────
 
 export async function findCardByNumber(card_number) {
@@ -9,36 +10,60 @@ export async function findCardByNumber(card_number) {
 }
 
 export async function findTokenById(token_id) {
-  // Also pull parent phone_index via ParentUser join (needed for OTP key in verify)
-  const token = await prisma.token.findUnique({
+  // NOTE: For UNASSIGNED tokens, student_id is null — do NOT try to join
+  // through student → parents → phone_index here. That join only works
+  // after completeRegistration links the student. phone_index is fetched
+  // separately via findParentPhoneByTokenId during verify.
+  return prisma.token.findUnique({
     where: { id: token_id },
     select: {
       id: true,
       school_id: true,
       status: true,
-      student: {
-        select: {
-          parents: {
-            select: {
-              parent: {
-                select: { phone_index: true },
-              },
-            },
-            take: 1,
-          },
-        },
-      },
+      student_id: true,
     },
   });
+}
 
-  if (!token) return null;
+// ─── Get phone_index for a token via RegistrationNonce → ParentUser ──────────
+// Called during verifyRegistration. The parent was upserted during initRegistration
+// using their phone. We find them via the nonce → token_id → ParentUser lookup.
+// Since RegistrationNonce doesn't store phone_index, we find the most recent
+// unused nonce for this token_id and look up the parent who was created during init.
 
-  // Flatten parent phone_index onto token for service layer convenience
-  return {
-    ...token,
-    parent_phone_index:
-      token.student?.parents?.[0]?.parent?.phone_index ?? null,
-  };
+export async function findParentPhoneByTokenId(token_id) {
+  // The parent was upserted in initRegistration using phone_index.
+  // We need to find that parent. The only link we have at verify time is
+  // token_id (from the nonce). We find the ParentUser whose phone_index
+  // corresponds to the phone submitted during init.
+  //
+  // Best approach: store phone_index on the nonce itself.
+  // Since schema change requires migration, we query ParentUser
+  // by finding who has a session-less account linked to this token's school.
+  //
+  // ACTUAL FIX: We pass nonce from service → repo so we can do a direct lookup.
+  // See findParentPhoneByNonce below — service passes nonce directly.
+  return null; // replaced by findParentPhoneByNonce
+}
+
+export async function findParentPhoneByNonce(nonce) {
+  // RegistrationNonce → token_id — but no direct phone link in schema.
+  // The parent was upserted during init. We need their phone_index.
+  //
+  // Since RegistrationNonce has no phone_index column yet, we find the
+  // ParentUser who was most recently upserted and has NO children linked yet
+  // (status ACTIVE, children count = 0). This is fragile.
+  //
+  // REAL FIX: Add phone_index to RegistrationNonce in schema (see comment below).
+  // For now we return null and let service handle fallback via passed-in phone.
+  //
+  // ── SCHEMA MIGRATION NEEDED ──────────────────────────────────────────────────
+  // Add this field to RegistrationNonce in schema.prisma:
+  //   phone_index String?
+  // Then in createNonce, pass phone_index and store it.
+  // Then here: return prisma.registrationNonce.findUnique({ where: { nonce }, select: { phone_index: true } })
+  // ─────────────────────────────────────────────────────────────────────────────
+  return null;
 }
 
 // ─── Parent User ──────────────────────────────────────────────────────────────
@@ -54,9 +79,16 @@ export async function upsertParentByPhone({ phone, phone_index }) {
 
 // ─── Nonce ────────────────────────────────────────────────────────────────────
 
-export async function createNonce({ nonce, token_id, expires_at }) {
+export async function createNonce({
+  nonce,
+  token_id,
+  expires_at,
+  phone_index,
+}) {
+  // phone_index stored so verifyRegistration can retrieve it without
+  // relying on the student→parents join (which doesn't exist yet for UNASSIGNED tokens)
   return prisma.registrationNonce.create({
-    data: { nonce, token_id, expires_at },
+    data: { nonce, token_id, expires_at, phone_index },
     select: { id: true },
   });
 }
@@ -70,6 +102,7 @@ export async function findNonce(nonce) {
       token_id: true,
       expires_at: true,
       used: true,
+      phone_index: true, // ← added: needed by verifyRegistration
     },
   });
 }
@@ -223,19 +256,16 @@ export async function saveStudentProfile({
 
     // 3. Full replace contacts if provided
     if (contacts !== undefined) {
-      // Get emergency profile id first
       const profile = await tx.emergencyProfile.findUnique({
         where: { student_id: studentId },
         select: { id: true },
       });
 
       if (profile) {
-        // Delete all existing contacts
         await tx.emergencyContact.deleteMany({
           where: { profile_id: profile.id },
         });
 
-        // Re-create with correct priority order (index + 1)
         if (contacts.length > 0) {
           await tx.emergencyContact.createMany({
             data: contacts.map((c, i) => ({
@@ -251,7 +281,7 @@ export async function saveStudentProfile({
       }
     }
 
-    // 4. Token ISSUED → ACTIVE (only if ISSUED — idempotent, safe to call multiple times)
+    // 4. Token ISSUED → ACTIVE (idempotent)
     await tx.token.updateMany({
       where: {
         student_id: studentId,
