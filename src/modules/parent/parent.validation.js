@@ -26,7 +26,7 @@ export const validateRegisterVerify = z.object({
   phone: z
     .string()
     .trim()
-    .regex(/^+?[1-9]\d{7,14}$/),
+    .regex(/^\+?[1-9]\d{7,14}$/), // ← FIXED: \+ escapes the plus sign,
 });
 
 // ─── Update Student Profile ───────────────────────────────────────────────────
