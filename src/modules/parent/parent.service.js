@@ -3,7 +3,7 @@ import * as parentRepo from "./parent.repository.js";
 import redis from "../../config/redis.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { blindIndex } from "../../utils/encryption.js";
-import { jwtDecode } from "jwt-decode";
+import jwt from "jsonwebtoken";
 import { ApiError } from "../../utils/ApiError.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ export async function verifyRegistration({
 
   let expiresAt;
   try {
-    expiresAt = jwtDecode(accessToken).exp;
+    expiresAt = jwt.decode(accessToken).exp;
   } catch {
     expiresAt = Math.floor(Date.now() / 1000) + 15 * 60;
   }

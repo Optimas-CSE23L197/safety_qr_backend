@@ -6,7 +6,7 @@ import { HTTP_STATUS, ERROR_MESSAGES } from "../../config/constants.js";
 import { encrypt, blindIndex } from "../../utils/encryption.js";
 import { generateOtp, hashOtp } from "../../services/otp.service.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
-import { jwtDecode } from "jwt-decode";
+import jwt from "jsonwebtoken";
 import { auditLog } from "../../utils/auditLogger.js";
 import redis from "../../config/redis.js";
 import { logger } from "../../config/logger.js";
@@ -262,7 +262,7 @@ export const verifyOtp = async ({ phone, otp, ipAddress, deviceInfo }) => {
   // FIX: Decode expiresAt from access token so mobile can store it
   let expiresAt;
   try {
-    expiresAt = jwtDecode(accessToken).exp;
+    expiresAt = jwt.decode(accessToken).exp;
   } catch {
     expiresAt = Math.floor(Date.now() / 1000) + 15 * 60; // fallback: 15min
   }
