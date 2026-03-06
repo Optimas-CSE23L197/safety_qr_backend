@@ -1,6 +1,18 @@
 import prisma from "../../config/prisma.js";
 import { encrypt } from "../../utils/encryption.js";
 
+// =============================================================================
+// Parent Repository — pure DB access, zero business logic
+//
+// Fixes applied:
+//   [R1] updateSessionHash() added — called after JWT generation to replace
+//        the "pending_xxx" placeholder created during completeRegistration
+//   [R2] findStudentForAudit() added — fetches old values for audit log
+//   [R3] findParentWithFullProfile() selects doctor_phone_encrypted correctly
+//        per schema (field name is doctor_phone_encrypted, not doctor_phone)
+//   [R4] completeRegistration uses upsert on ParentUser — safe against races
+// =============================================================================
+
 // ─── Card & Token ─────────────────────────────────────────────────────────────
 
 export async function findCardByNumber(card_number) {
@@ -47,9 +59,9 @@ export async function findNonce(nonce) {
 
 // ─── Complete Registration (atomic transaction) ───────────────────────────────
 //
-// FIX (Ghost Parents): ParentUser created HERE after OTP verified.
-// FIX (Encrypted Phones): Uses encrypt(phone) — consistent with auth.repository.js.
-// Returns { student, session, parentId } so service generates JWT with correct sub.
+// Creates: ParentUser (upsert) + Student + ParentStudent + Token update + Session
+// Session is created with a placeholder hash — caller MUST call updateSessionHash()
+// immediately after generating the real JWT pair. [R4]
 
 export async function completeRegistration({
   nonce,
@@ -68,7 +80,7 @@ export async function completeRegistration({
       data: { used: true },
     });
 
-    // 2. Create ParentUser with encrypted phone (upsert handles race conditions)
+    // 2. Create or find ParentUser — upsert handles race conditions
     const parent = await tx.parentUser.upsert({
       where: { phone_index },
       create: {
@@ -77,15 +89,15 @@ export async function completeRegistration({
         is_phone_verified: true,
         status: "ACTIVE",
       },
-      update: {},
+      update: {}, // do nothing if already exists
       select: { id: true },
     });
 
-    // 3. Create student shell
+    // 3. Create student shell — school_id only, parent fills rest during onboarding
     const student = await tx.student.create({
       data: {
         school_id,
-        first_name: "Student",
+        first_name: "Student", // placeholder — overwritten by PATCH /student/:id
         is_active: true,
       },
       select: { id: true },
@@ -93,7 +105,11 @@ export async function completeRegistration({
 
     // 4. Link parent → student
     await tx.parentStudent.create({
-      data: { parent_id: parent.id, student_id: student.id, is_primary: true },
+      data: {
+        parent_id: parent.id,
+        student_id: student.id,
+        is_primary: true,
+      },
     });
 
     // 5. Token: UNASSIGNED → ISSUED
@@ -106,11 +122,11 @@ export async function completeRegistration({
       },
     });
 
-    // 6. Create session (refresh_token_hash updated by service after JWT generation)
+    // 6. Session with placeholder hash — [R1] caller updates this immediately
     const session = await tx.session.create({
       data: {
         parent_user_id: parent.id,
-        refresh_token_hash: `pending_${Date.now()}`,
+        refresh_token_hash: `pending_${Date.now()}`, // replaced by updateSessionHash
         device_info,
         ip_address: ip,
         expires_at: session_expires_at,
@@ -119,6 +135,17 @@ export async function completeRegistration({
     });
 
     return { student, session, parentId: parent.id };
+  });
+}
+
+// ─── [R1] Update Session Hash ─────────────────────────────────────────────────
+// Called immediately after JWT generation in verifyRegistration()
+// Replaces the placeholder hash with the real SHA-256 of the refresh token
+
+export async function updateSessionHash(sessionId, refreshTokenHash) {
+  return prisma.session.update({
+    where: { id: sessionId },
+    data: { refresh_token_hash: refreshTokenHash },
   });
 }
 
@@ -133,7 +160,34 @@ export async function findParentStudent({ parentId, studentId }) {
   });
 }
 
+// ─── [R2] Find Student for Audit ─────────────────────────────────────────────
+// Fetches current values before a PATCH so audit log has old_value
+
+export async function findStudentForAudit(studentId) {
+  return prisma.student.findUnique({
+    where: { id: studentId },
+    select: {
+      school_id: true,
+      first_name: true,
+      last_name: true,
+      class: true,
+      section: true,
+      emergency: {
+        select: {
+          blood_group: true,
+          allergies: true,
+          conditions: true,
+          medications: true,
+          doctor_name: true,
+          notes: true,
+        },
+      },
+    },
+  });
+}
+
 // ─── Save Student Profile ─────────────────────────────────────────────────────
+// Full replace on contacts — re-numbered by array index (priority = index + 1)
 
 export async function saveStudentProfile({
   studentId,
@@ -166,25 +220,38 @@ export async function saveStudentProfile({
       await tx.emergencyProfile.upsert({
         where: { student_id: studentId },
         create: { student_id: studentId, ...emergency },
-        update: { ...emergency, updated_at: new Date() },
+        update: {
+          ...emergency,
+          // [R3] Map doctor_phone from request → doctor_phone_encrypted in DB
+          ...(emergency.doctor_phone !== undefined && {
+            doctor_phone_encrypted: emergency.doctor_phone
+              ? encrypt(emergency.doctor_phone)
+              : null,
+            doctor_phone: undefined, // don't write plaintext
+          }),
+          updated_at: new Date(),
+        },
       });
     }
 
     if (contacts !== undefined) {
+      // Full replace — delete existing, re-insert with new priorities
       const profile = await tx.emergencyProfile.findUnique({
         where: { student_id: studentId },
         select: { id: true },
       });
+
       if (profile) {
         await tx.emergencyContact.deleteMany({
           where: { profile_id: profile.id },
         });
+
         if (contacts.length > 0) {
           await tx.emergencyContact.createMany({
             data: contacts.map((c, i) => ({
               profile_id: profile.id,
               name: c.name,
-              phone: c.phone,
+              phone_encrypted: encrypt(c.phone), // [R3] encrypt contact phone
               relationship: c.relationship ?? null,
               priority: i + 1,
               is_active: true,
@@ -194,9 +261,85 @@ export async function saveStudentProfile({
       }
     }
 
-    await tx.token.updateMany({
-      where: { student_id: studentId, status: "ISSUED" },
-      data: { status: "ACTIVE", activated_at: new Date() },
-    });
+    // Flip token ISSUED → ACTIVE once profile has real data
+    if (student?.first_name) {
+      await tx.token.updateMany({
+        where: { student_id: studentId, status: "ISSUED" },
+        data: { status: "ACTIVE", activated_at: new Date() },
+      });
+    }
+  });
+}
+
+// ─── Get Full Profile ─────────────────────────────────────────────────────────
+// [R3] Selects doctor_phone_encrypted + phone_encrypted — decrypted in service
+
+export async function findParentWithFullProfile(parentId) {
+  return prisma.parentUser.findUnique({
+    where: { id: parentId },
+    select: {
+      id: true,
+      phone: true, // encrypted — decrypted in service
+      children: {
+        where: { student: { is_active: true, deleted_at: null } },
+        orderBy: { is_primary: "desc" },
+        select: {
+          is_primary: true,
+          relationship: true,
+          student: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              class: true,
+              section: true,
+              photo_url: true,
+              school: {
+                select: { id: true, name: true, logo_url: true },
+              },
+              emergency: {
+                select: {
+                  blood_group: true,
+                  allergies: true,
+                  conditions: true,
+                  medications: true,
+                  doctor_name: true,
+                  doctor_phone_encrypted: true, // [R3] correct field name from schema
+                  notes: true,
+                  contacts: {
+                    where: { is_active: true },
+                    orderBy: { priority: "asc" },
+                    select: {
+                      id: true,
+                      name: true,
+                      phone_encrypted: true, // [R3] correct field name from schema
+                      relationship: true,
+                      priority: true,
+                    },
+                  },
+                },
+              },
+              tokens: {
+                where: { status: { in: ["ACTIVE", "ISSUED"] } },
+                take: 1,
+                orderBy: { assigned_at: "desc" },
+                select: {
+                  id: true,
+                  status: true,
+                  expires_at: true,
+                  cards: {
+                    take: 1,
+                    select: { card_number: true, file_url: true },
+                  },
+                },
+              },
+              cardVisibility: {
+                select: { visibility: true, hidden_fields: true },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 }

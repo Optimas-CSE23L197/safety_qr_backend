@@ -60,3 +60,18 @@ export async function updateStudentProfile(req, res, next) {
     next(err);
   }
 }
+
+// =============================================================================
+// PATCH 3 — parent.controller.js
+// ADD this function
+// =============================================================================
+
+export async function getParentMe(req, res, next) {
+  try {
+    // req.user.id = parent.id from JWT sub — no other lookup needed
+    const data = await parentService.getFullProfile(req.user.id);
+    return res.status(200).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+}

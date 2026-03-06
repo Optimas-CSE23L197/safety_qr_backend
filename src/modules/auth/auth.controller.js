@@ -5,13 +5,24 @@ import { extractIp } from "../../utils/extractIp.js";
 
 // =============================================================================
 // Auth Controller
-// FIX-1: refreshTokenController now reads refreshToken from req.body (not cookie)
-//        Mobile apps cannot use httpOnly cookies. Cookie approach only works for
-//        web browsers. Mobile sends refreshToken in request body.
-// FIX-2: refreshTokenController returns camelCase { accessToken, refreshToken }
-//        to match what tokenRefresh.js and auth.api.js expect.
-// FIX-3: verifyOtpController response normalized to camelCase.
+//
+// Three actors: SuperAdmin, SchoolUser, ParentUser
+//
+// Mobile vs Web token delivery:
+//   - Mobile: refreshToken in response body (httpOnly cookies don't work in RN)
+//   - Web:    refreshToken in httpOnly cookie
+//   - Both:   accessToken in response body
+//
+// Response keys: both camelCase (mobile) + snake_case (web/dashboard)
 // =============================================================================
+
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict",
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days — matches REFRESH_TTL_DAYS
+  path: "/api/auth",
+};
 
 // ---------------------------------------------------------------------------
 // POST /auth/super-admin
@@ -24,21 +35,16 @@ export const loginSuperAdminController = asyncHandler(async (req, res) => {
     deviceInfo: req.headers["user-agent"] ?? null,
   });
 
-  // Web clients still get the cookie
-  res.cookie("refresh_token", data.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/api/auth",
-  });
+  res.cookie("refresh_token", data.refresh_token, COOKIE_OPTIONS);
 
   return res.status(HTTP_STATUS.OK).json({
     success: true,
     message: "Login successful",
     data: {
-      accessToken: data.access_token, // camelCase for mobile clients
-      access_token: data.access_token, // snake_case for web/dashboard clients
+      accessToken: data.access_token,
+      access_token: data.access_token,
+      refreshToken: data.refresh_token, // for mobile (no cookies)
+      refresh_token: data.refresh_token,
       user: data.user,
     },
   });
@@ -55,13 +61,7 @@ export const loginSchoolUserController = asyncHandler(async (req, res) => {
     deviceInfo: req.headers["user-agent"] ?? null,
   });
 
-  res.cookie("refresh_token", data.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/api/auth",
-  });
+  res.cookie("refresh_token", data.refresh_token, COOKIE_OPTIONS);
 
   return res.status(HTTP_STATUS.OK).json({
     success: true,
@@ -69,13 +69,15 @@ export const loginSchoolUserController = asyncHandler(async (req, res) => {
     data: {
       accessToken: data.access_token,
       access_token: data.access_token,
+      refreshToken: data.refresh_token,
+      refresh_token: data.refresh_token,
       user: data.user,
     },
   });
 });
 
 // ---------------------------------------------------------------------------
-// POST /auth/parent/send-otp
+// POST /auth/send-otp
 // ---------------------------------------------------------------------------
 export const sendOtpController = asyncHandler(async (req, res) => {
   const data = await authService.sendOtp({
@@ -91,8 +93,11 @@ export const sendOtpController = asyncHandler(async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /auth/parent/verify-otp
-// FIX-3: Returns camelCase tokens to match mobile tokenRefresh.js expectations
+// POST /auth/verify-otp
+//
+// Returns both tokens in body — mobile reads them directly.
+// Also sets httpOnly cookie for any web clients.
+// isNewUser tells the frontend whether to route to onboarding or home.
 // ---------------------------------------------------------------------------
 export const verifyOtpController = asyncHandler(async (req, res) => {
   const data = await authService.verifyOtp({
@@ -102,6 +107,9 @@ export const verifyOtpController = asyncHandler(async (req, res) => {
     deviceInfo: req.headers["user-agent"] ?? null,
   });
 
+  // Set cookie for web clients even though mobile doesn't use it
+  res.cookie("refresh_token", data.refreshToken, COOKIE_OPTIONS);
+
   return res.status(HTTP_STATUS.OK).json({
     success: true,
     message: data.isNewUser
@@ -110,21 +118,22 @@ export const verifyOtpController = asyncHandler(async (req, res) => {
     data: {
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
-      expiresAt: data.expiresAt,
-      parent: data.parent,
-      isNewUser: data.isNewUser,
+      expiresAt: data.expiresAt, // Unix seconds — mobile storage.setTokens
+      isNewUser: data.isNewUser, // frontend routing flag
+      parent: data.parent, // { id }
     },
   });
 });
 
 // ---------------------------------------------------------------------------
 // POST /auth/refresh
-// FIX-1: Reads refreshToken from req.body (mobile) with cookie fallback (web)
-// FIX-2: Returns camelCase { accessToken, refreshToken } for mobile
+//
+// Mobile sends refreshToken in body.
+// Web browsers send it as httpOnly cookie.
+// Body takes priority — cookie is fallback.
+// Returns new refresh token — mobile MUST save it (rotation).
 // ---------------------------------------------------------------------------
 export const refreshTokenController = asyncHandler(async (req, res) => {
-  // FIX-1: Mobile sends refreshToken in body. Web browsers send it as cookie.
-  // Support both — body takes priority.
   const refreshToken =
     req.body?.refreshToken ?? req.cookies?.refresh_token ?? null;
 
@@ -142,23 +151,17 @@ export const refreshTokenController = asyncHandler(async (req, res) => {
   });
 
   // Rotate cookie for web clients
-  res.cookie("refresh_token", data.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/api/auth",
-  });
+  res.cookie("refresh_token", data.refresh_token, COOKIE_OPTIONS);
 
-  // FIX-2: Return BOTH naming conventions so web and mobile both work
   return res.status(HTTP_STATUS.OK).json({
     success: true,
     message: "Token refreshed",
     data: {
-      accessToken: data.access_token, // camelCase — mobile tokenRefresh.js
-      access_token: data.access_token, // snake_case — web/dashboard
-      refreshToken: data.refresh_token, // mobile needs this for storage rotation
+      accessToken: data.access_token,
+      access_token: data.access_token,
+      refreshToken: data.refresh_token, // mobile MUST save — token rotated
       refresh_token: data.refresh_token,
+      expiresAt: data.expiresAt, // Unix seconds
     },
   });
 });
@@ -168,9 +171,8 @@ export const refreshTokenController = asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 export const logoutController = asyncHandler(async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
-  // Support both cookie and body for refresh token
   const refreshToken =
-    req.cookies?.refresh_token ?? req.body?.refreshToken ?? null;
+    req.body?.refreshToken ?? req.cookies?.refresh_token ?? null;
 
   await authService.logoutUser({
     token,

@@ -9,6 +9,7 @@ import {
   registerInit,
   registerVerify,
   updateStudentProfile,
+  getParentMe,
 } from "./parent.controller.js";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import { authorize } from "../../middlewares/rbac.middleware.js";
@@ -68,5 +69,8 @@ router.patch(
   validate(validateUpdateStudent),
   updateStudentProfile,
 );
+
+// Add this route (protected):
+router.get("/me", requireAuth, authorize(["parent"]), getParentMe);
 
 export default router;
