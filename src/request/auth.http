@@ -10,7 +10,7 @@ Content-Type: application/json
 ###! Admin Logout
 POST http://localhost:3000/api/v1/auth/logout
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NzE5NDE4MC1lMTkyLTQxMDItOGQwZS05NmE3MzY3N2EyMjgiLCJhY3RvclR5cGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3MjY0NzU4NCwiZXhwIjoxNzcyNzMzOTg0fQ.nqr_va4OzcqUadDcGtME2dL4hp0cEcModMvUGi3-n64
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwNDkwMmI2ZS1mYTdhLTQ2MTMtODgxYS00YjJlYjZlNGQyYTUiLCJyb2xlIjoiUEFSRU5UIiwiYWN0b3JUeXBlIjoicGFyZW50IiwiaWF0IjoxNzcyNzkwOTMzLCJleHAiOjE3NzI4NzczMzN9.J5NSmGhR6TUeCoTE6xPin-_m8rE8qGPsnntsJSnUz4w
 
 ### ! School Login
 POST http://localhost:3000/api/v1/auth/school

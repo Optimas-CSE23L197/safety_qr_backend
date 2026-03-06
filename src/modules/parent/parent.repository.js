@@ -216,18 +216,23 @@ export async function saveStudentProfile({
       });
     }
 
+    // ✅ Fix - handle doctor_phone in create block too
     if (emergency) {
+      const { doctor_phone, ...emergencyRest } = emergency;
+
       await tx.emergencyProfile.upsert({
         where: { student_id: studentId },
-        create: { student_id: studentId, ...emergency },
+        create: {
+          student_id: studentId,
+          ...emergencyRest,
+          ...(doctor_phone !== undefined && {
+            doctor_phone_encrypted: doctor_phone ? encrypt(doctor_phone) : null,
+          }),
+        },
         update: {
-          ...emergency,
-          // [R3] Map doctor_phone from request → doctor_phone_encrypted in DB
-          ...(emergency.doctor_phone !== undefined && {
-            doctor_phone_encrypted: emergency.doctor_phone
-              ? encrypt(emergency.doctor_phone)
-              : null,
-            doctor_phone: undefined, // don't write plaintext
+          ...emergencyRest,
+          ...(doctor_phone !== undefined && {
+            doctor_phone_encrypted: doctor_phone ? encrypt(doctor_phone) : null,
           }),
           updated_at: new Date(),
         },

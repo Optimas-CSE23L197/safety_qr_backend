@@ -65,12 +65,12 @@ router.post(
 router.patch(
   "/student/:studentId",
   requireAuth,
-  authorize(["parent"]),
+  authorize(["PARENT"]),
   validate(validateUpdateStudent),
   updateStudentProfile,
 );
 
 // Add this route (protected):
-router.get("/me", requireAuth, authorize(["parent"]), getParentMe);
+router.get("/me", requireAuth, authorize(["PARENT"]), getParentMe);
 
 export default router;

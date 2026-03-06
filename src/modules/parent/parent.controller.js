@@ -46,7 +46,7 @@ export async function updateStudentProfile(req, res, next) {
   try {
     const { studentId } = req.params;
     const { student, emergency, contacts } = req.body;
-    const parentId = req.parent.id;
+    const parentId = req.user.id;
 
     await parentService.updateProfile({
       studentId,
